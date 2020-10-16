@@ -1,6 +1,7 @@
 #ifndef SCENE_H
 #define SCENE_H
 
+
 #include "object.hpp"
 
 #include <eigen3/Eigen/Dense>
@@ -21,7 +22,7 @@ private:
     Matrix4d perspective_projection;
     vector<Object> objects;
 
-    void _render_object(Object &obj, int **grid);
+    void _render_object(Object &obj, int xres, int yres, int **grid);
     Vertex _get_NCD(const Vertex &v) const;
 };
 

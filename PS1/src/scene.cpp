@@ -150,26 +150,44 @@ void Scene::render_scene(int xres, int yres) {
     int **grid = new int*[yres];
 
     for (size_t i = 0; i < yres; i++) {
-        grid[i] = new int[xres];
+        grid[i] = new int[xres]{0};
     }
 
     for (Object &obj : objects) {
-        _render_object(obj, grid);
+        _render_object(obj, xres, yres, grid);
     }
 
     // Output grid
+
+    // Print header, resolution, and max pixel intensity
+    cout << "P3" << endl;
+    cout << xres << " " << yres << endl;
+    cout << 255 << endl;
+
+    for (int i = 0; i < yres; i++) {
+        for (int j = 0; j < xres; j++) {
+            if (grid[i][j] == 1) {
+                cout << 255 << " " << 255 << " " << 255 << endl;
+            }
+            else {
+                cout << 0 << " " << 0 << " " << 0 << endl;
+            }
+        }
+    }
+
+    // Free grid
 }
 
 // Converts object's vertices to Cartesian NCD coordinates and rasterizes the
 // object as a wireframe model.
-void Scene::_render_object(Object &obj, int **grid) {
+void Scene::_render_object(Object &obj, int xres, int yres, int **grid) {
     // Convert each vertex to a Cartesian NCD coordinate
     for (int i = 0; i < obj.vertices.size(); i++) {
         Vertex v = obj.vertices[i];
         obj.vertices[i] = _get_NCD(v);
     }
 
-    rasterize_object(obj, grid);
+    rasterize_object(obj, xres, yres, grid);
 }
 
 // Returns the Cartesian NCD coordinates of the given vertex origianlly in world
