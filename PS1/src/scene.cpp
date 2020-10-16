@@ -63,6 +63,8 @@ Scene::Scene(string filename) {
         getline(infile, line);
     }
 
+    inv_camera_transformation = camera_transformation.inverse();
+
     perspective_projection = MatrixXd::Zero(4, 4);
     perspective_projection(0, 0) = 2 * n / (r - l);
     perspective_projection(0, 2) = (r + l) / (r - l);
@@ -173,5 +175,9 @@ void Scene::_render_object(Object &obj, int **grid) {
 // Returns the Cartesian NCD coordinates of the given vertex origianlly in world
 // coordinates.
 Vertex Scene::_get_NCD(const Vertex &v) const {
-    return v;
+    Vector4d vec;
+    vec << v.x, v.y, v.z, 1;
+    vec = perspective_projection * inv_camera_transformation * vec;
+
+    return Vertex{vec(0) / vec(3), vec(1) / vec(3), vec(2) / vec(3)};
 }
