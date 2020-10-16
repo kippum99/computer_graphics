@@ -33,13 +33,13 @@ Scene::Scene(string filename) {
             double tx, ty, tz;
             iss >> tx >> ty >> tz;
             trans = get_translation_matrix(tx, ty, tz);
-            camera_transformation = trans * camera_transformation;
+            camera_transformation *= trans;
         }
         else if (label == "orientation") {
             double rx, ry, rz, angle;
             iss >> rx >> ry >> rz >> angle;
             trans = get_rotation_matrix(rx, ry, rz, angle);
-            camera_transformation = trans * camera_transformation;
+            camera_transformation *= trans;
         }
         else if (label == "near") {
             iss >> n;
@@ -176,6 +176,11 @@ void Scene::render_scene(int xres, int yres) {
     }
 
     // Free grid
+    for (size_t i = 0; i < yres; i++) {
+        delete [] grid[i];
+    }
+
+    delete [] grid;
 }
 
 // Converts object's vertices to Cartesian NCD coordinates and rasterizes the

@@ -7,7 +7,7 @@
 
 // Returns true if the point is in perspective cube, false otherwise.
 bool is_in_perspective(Vertex v) {
-    return (v.x >= -1 && v.x <= 1 && v.y >= -1 && v.y <= 1 && v.z >= -1
+    return (v.x >= -1 && v.x <= 1 && v.y >= -1 && v.y <= 1
             && v.z <= 1);
 }
 
@@ -38,15 +38,6 @@ void rasterize_object(Object &obj, int xres, int yres, int **grid) {
         int x3 = coords3.first;
         int y3 = coords3.second;
 
-        // if (!is_in_perspective(v1)) {
-        //     cout << "v1 not in perspective " << v1.x << " " << v1.y << endl;
-        // }
-        // if (!is_in_perspective(v2)) {
-        //     cout << "v2 not in perspective " << v2.x << " " << v2.y << endl;
-        // }
-        // if (!is_in_perspective(v3)) {
-        //     cout << "v3 not in perspective " << v3.x << " " << v3.y << endl;
-        // }
         if (is_in_perspective(v1) || is_in_perspective(v2)) {
             rasterize_line(x1, y1, x2, y2, xres, yres, grid);
         }
