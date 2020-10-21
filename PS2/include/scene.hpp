@@ -2,6 +2,7 @@
 #define SCENE_H
 
 
+#include "image.hpp"
 #include "light.hpp"
 #include "object.hpp"
 
@@ -15,7 +16,7 @@ using namespace std;
 class Scene {
 public:
     Scene(const string &filename);
-    void render_scene(int xres, int yres);
+    void render_scene(Image &image, int mode);
 
 private:
     Matrix4f camera_transformation;
@@ -25,8 +26,8 @@ private:
     vector<Object> objects;
     vector<Light> lights;
 
-    void _render_object(Object &obj, int xres, int yres, int **grid);
-    Vertex _get_NCD(const Vertex &v) const;
+    void _render_object(Object &obj, Image &image, int mode);
+    Vertex _get_NDC(const Vertex &v) const;
 };
 
 #endif

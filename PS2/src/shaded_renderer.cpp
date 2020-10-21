@@ -1,3 +1,4 @@
+#include "image.hpp"
 #include "scene.hpp"
 
 #include <string>
@@ -17,7 +18,9 @@ int main(int argc, char *argv[]) {
     int mode = stoi(argv[4]);
 
     Scene scene(scene_filename);
-    // scene.render_scene(xres, yres);
+    Image image(xres, yres);
+    scene.render_scene(image, mode);
+    image.output_image();
 
     return 0;
 }

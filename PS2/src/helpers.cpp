@@ -7,7 +7,7 @@ stringstream tokenize_string(const string &s, const string &delim) {
     auto end = s.find(delim);
 
     while (end != string::npos) {
-        ss << s.substr(start, end - start);
+        ss << s.substr(start, end - start) << " ";
         start = end + delim.length();
         end = s.find(delim, start);
     }

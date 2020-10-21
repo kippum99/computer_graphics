@@ -3,9 +3,10 @@
 #include "color.hpp"
 #include "light.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <eigen3/Eigen/Dense>
+
+#include <iostream>
 
 
 using namespace std;
@@ -20,7 +21,7 @@ struct VertexInfo {
 
 // Returns true if the point is in perspective (NDC) cube, false otherwise.
 bool is_in_perspective(Vertex &v) {
-    return (v(0) >= -1 && v(0) <= 1 && v(1) >= -1 && v(1) <= 1);
+    return (v(0) >= -1 && v(0) < 1 && v(1) >= -1 && v(1) < 1);
 }
 
 /* Barycentric coordinates helper functions  */
@@ -28,7 +29,7 @@ bool is_in_perspective(Vertex &v) {
 // Helper function that computes f_ij(x, y) needed for computing barycentric
 // coordinate coefficients alpha, beta, and gamma.
 int barycentric_helper(int x, int y, int x1, int y1, int x2, int y2) {
-    return ((y1 - y2) * x + (x2 - x1) * y + x1 * y2 - x2 * y1);
+    return (y1 - y2) * x + (x2 - x1) * y + x1 * y2 - x2 * y1;
 }
 
 float compute_alpha(int x1, int y1, int x2, int y2, int x3, int y3, int x,
@@ -36,7 +37,7 @@ float compute_alpha(int x1, int y1, int x2, int y2, int x3, int y3, int x,
     int numer = barycentric_helper(x, y, x2, y2, x3, y3);
     int denom = barycentric_helper(x1, y1, x2, y2, x3, y3);
 
-    return float(numer) / denom;
+    return (float)numer / denom;
 }
 
 float compute_beta(int x1, int y1, int x2, int y2, int x3, int y3, int x,
@@ -79,7 +80,7 @@ Color lighting(Vertex &v, Normal &n, Material &material, vector<Light> &lights,
 
         Color l_specular = l.color
             * pow(max(0.f, n.dot((e_direction + l_direction).normalized())),
-                    material.shininess);
+            material.shininess);
         specular_sum += l_specular;
     }
 
@@ -94,18 +95,18 @@ Color lighting(Vertex &v, Normal &n, Material &material, vector<Light> &lights,
 }
 
 // Rasterizes colored triangle with depth buffering and backface culling.
-void rasterize_colored_triangle(Vertex &v1, Vertex &v2, Vertex &v3,
-                                int xres, int yres, int **grid, int **buffer) {
-    Vector3f cross = (v3 - v2).cross(v1 - v2);
+void rasterize_colored_triangle(VertexInfo &a, VertexInfo &b, VertexInfo &c,
+                                Image &image) {
+    Vector3f cross = (c.vertex - b.vertex).cross(a.vertex - b.vertex);
 
     if (cross(2) < 0) {
         return;
     }
 
     // Screen coordinates of vertices
-    Vector2i coord1 = get_screen_coordinates(v1, xres, yres);
-    Vector2i coord2 = get_screen_coordinates(v2, xres, yres);
-    Vector2i coord3 = get_screen_coordinates(v3, xres, yres);
+    Vector2i coord1 = get_screen_coordinates(a.vertex, image.xres, image.yres);
+    Vector2i coord2 = get_screen_coordinates(b.vertex, image.xres, image.yres);
+    Vector2i coord3 = get_screen_coordinates(c.vertex, image.xres, image.yres);
 
     int x1 = coord1(0);
     int y1 = coord1(1);
@@ -127,29 +128,43 @@ void rasterize_colored_triangle(Vertex &v1, Vertex &v2, Vertex &v3,
 
             if (alpha >= 0 && alpha <= 1 && beta >= 0 && beta <= 1
                 && gamma >= 0 && gamma <= 1) {
-                Vertex v = alpha * v1 + beta * v2 + gamma * v3;
+                Vertex v = alpha * a.vertex + beta * b.vertex
+                            + gamma * c.vertex;
 
-                if (is_in_perspective(v) && v(2) < buffer[y][x]) {
-                    buffer[y][x] = v(2);
-                    break;
+                if (is_in_perspective(v) && v(2) < image.buffer[y][x]) {
+                    image.buffer[y][x] = (float) v(2);
 
-                    // float r = alpha *
+                    float c_r = alpha * (a.color)(0) + beta * (b.color)(0)
+                                + gamma * (c.color)(0);
+                    float c_g = alpha * (a.color)(1) + beta * (b.color)(1)
+                                + gamma * (c.color)(1);
+                    float c_b = alpha * (a.color)(2) + beta * (b.color)(2)
+                                + gamma * (c.color)(2);
+
+                    image.grid[y][x] = Color{c_r, c_g, c_b};
                 }
-                // grid[y][x]
             }
         }
     }
-
 }
 
 void gouraud_shading(VertexInfo &a, VertexInfo &b, VertexInfo &c,
                         Material &mat, vector<Light> &lights, Vector3f &e,
-                        int **grid) {
+                        Image &image) {
     a.color = lighting(a.vertex, a.normal, mat, lights, e);
+    b.color = lighting(b.vertex, b.normal, mat, lights, e);
+    c.color = lighting(c.vertex, c.normal, mat, lights, e);
+
+    rasterize_colored_triangle(a, b, c, image);
+}
+
+void phong_shading(VertexInfo &a, VertexInfo &b, VertexInfo &c,
+                        Material &mat, vector<Light> &lights, Vector3f &e,
+                        Image &image) {
 }
 
 void rasterize_object(Object &obj, vector<Light> &lights, Vector3f &camera_pos,
-                        int xres, int yres, int **grid) {
+                        Image &image, int mode) {
     for (Face f : obj.faces) {
         // Vertices in NCD coordinates
         Vertex v1 = obj.vertices[f.v1];
@@ -164,30 +179,10 @@ void rasterize_object(Object &obj, vector<Light> &lights, Vector3f &camera_pos,
         // Create VertexInfo structs
         VertexInfo a = {v1, n1, Color{0, 0, 0}};
         VertexInfo b = {v2, n2, Color{0, 0, 0}};
-        VertexInfo c = {v2, n2, Color{0, 0, 0}};
+        VertexInfo c = {v3, n3, Color{0, 0, 0}};
 
-        gouraud_shading(a, b, c, obj.material, lights, camera_pos, grid);
-
-        // pair<int, int> coords1 = get_screen_coordinates(v1, xres, yres);
-        // int x1 = coords1.first;
-        // int y1 = coords1.second;
-        //
-        // pair<int, int> coords2 = get_screen_coordinates(v2, xres, yres);
-        // int x2 = coords2.first;
-        // int y2 = coords2.second;
-        //
-        // pair<int, int> coords3 = get_screen_coordinates(v3, xres, yres);
-        // int x3 = coords3.first;
-        // int y3 = coords3.second;
-        //
-        // if (is_in_perspective(v1) || is_in_perspective(v2)) {
-        //     rasterize_line(x1, y1, x2, y2, xres, yres, grid);
-        // }
-        // if (is_in_perspective(v2) || is_in_perspective(v3)) {
-        //     rasterize_line(x2, y2, x3, y3, xres, yres, grid);
-        // }
-        // if (is_in_perspective(v1) || is_in_perspective(v3)) {
-        //     rasterize_line(x1, y1, x3, y3, xres, yres, grid);
-        // }
+        if (mode == 0) {
+            gouraud_shading(a, b, c, obj.material, lights, camera_pos, image);
+        }
     }
 }

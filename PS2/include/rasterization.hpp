@@ -1,6 +1,7 @@
 #ifndef RASTERIZATION_H
 #define RASTERIZATION_H
 
+#include "image.hpp"
 #include "light.hpp"
 #include "object.hpp"
 
@@ -10,7 +11,7 @@
 using namespace Eigen;
 
 void rasterize_object(Object &obj, vector<Light> &lights, Vector3f &camera_pos,
-                        int xres, int yres, int **grid);
+                        Image &image, int mode);
 
 
 #endif
