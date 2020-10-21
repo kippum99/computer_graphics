@@ -3,20 +3,17 @@
 
 #include "color.hpp"
 
+#include <eigen3/Eigen/Dense>
 #include <string>
 #include <vector>
 
 
+using namespace Eigen;
 using namespace std;
 
 
-struct Vertex {
-    double x;
-    double y;
-    double z;
-};
-
-typedef Vertex Normal;
+typedef Vector3d Vertex;
+typedef Vector3d Normal;
 
 struct Face {
     // Vertex indices
@@ -30,6 +27,13 @@ struct Face {
     int n3;
 };
 
+struct Material {
+    Color ambient;
+    Color diffuse;
+    Color specular;
+    double shininess;
+};
+
 
 class Object {
 public:
@@ -37,10 +41,7 @@ public:
     vector<Normal> normals;     // Surface normals
     vector<Face> faces;
 
-    Color ambient;
-    Color diffuse;
-    Color specular;
-    double shininess;
+    Material material;
 
     Object() {};
     Object(string filename);

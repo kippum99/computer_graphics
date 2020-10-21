@@ -109,14 +109,16 @@ Scene::Scene(string filename) {
         getline(infile, line);
     }
 
-    // Read and store reflectance fields and apply transformations
+    // Read and store material fields and apply transformations
     while (getline(infile, line)) {
         string obj_label = line;
         Object obj = object_map[obj_label];
 
         getline(infile, line);
 
-        // Read reflectance fields for the object
+        // Read material fields for the object
+        Material mat;
+
         while (!line.empty()) {
             istringstream iss(line);
             string t;
@@ -125,24 +127,26 @@ Scene::Scene(string filename) {
             if (t == "ambient") {
                 double r, g, b;
                 iss >> r >> g >> b;
-                obj.ambient = Color{r, g, b};
+                mat.ambient = Color{r, g, b};
             }
             else if (t == "diffuse") {
                 double r, g, b;
                 iss >> r >> g >> b;
-                obj.diffuse = Color{r, g, b};
+                mat.diffuse = Color{r, g, b};
             }
             else if (t == "specular") {
                 double r, g, b;
                 iss >> r >> g >> b;
-                obj.specular = Color{r, g, b};
+                mat.specular = Color{r, g, b};
             }
             else if (t == "shininess") {
-                iss >> obj.shininess;
+                iss >> mat.shininess;
             }
 
             getline(infile, line);
         }
+
+        obj.material = mat;
 
         // Read all transformations for the object and store in m
         Matrix4d m = MatrixXd::Identity(4, 4);
@@ -181,8 +185,7 @@ Scene::Scene(string filename) {
         // Apply transformation to every vertex in object
         for (size_t i = 0; i < obj.vertices.size(); i++) {
             Vertex v = obj.vertices[i];
-            Vector4d vec;
-            vec << v.x, v.y, v.z, 1;
+            Vector4d vec{v(0), v(1), v(2), 1};
             vec = m * vec;
             obj.vertices[i] = Vertex{vec(0), vec(1), vec(2)};
         }
@@ -200,11 +203,9 @@ Scene::Scene(string filename) {
 
         for (size_t i = 0; i < obj.normals.size(); i++) {
             Normal n = obj.normals[i];
-            Vector3d vec;
-            vec << n.x, n.y, n.z;
-            vec = x * vec;
-            vec.normalize();
-            obj.vertices[i] = Vertex{vec(0), vec(1), vec(2)};
+            n = x * n;
+            n.normalize();
+            obj.normals[i] = Vertex{n(0), n(1), n(2)};
         }
 
         // Store transformed copy
@@ -265,8 +266,7 @@ void Scene::_render_object(Object &obj, int xres, int yres, int **grid) {
 // Returns the Cartesian NCD coordinates of the given vertex origianlly in world
 // coordinates.
 Vertex Scene::_get_NCD(const Vertex &v) const {
-    Vector4d vec;
-    vec << v.x, v.y, v.z, 1;
+    Vector4d vec{v(0), v(1), v(2), 1};
     vec = perspective_projection * inv_camera_transformation * vec;
 
     return Vertex{vec(0) / vec(3), vec(1) / vec(3), vec(2) / vec(3)};
