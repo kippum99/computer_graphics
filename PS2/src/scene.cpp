@@ -179,7 +179,7 @@ Scene::Scene(string filename) {
         }
 
         // Apply transformation to every vertex in object
-        for (int i = 0; i < obj.vertices.size(); i++) {
+        for (size_t i = 0; i < obj.vertices.size(); i++) {
             Vertex v = obj.vertices[i];
             Vector4d vec;
             vec << v.x, v.y, v.z, 1;
@@ -187,7 +187,25 @@ Scene::Scene(string filename) {
             obj.vertices[i] = Vertex{vec(0), vec(1), vec(2)};
         }
 
-        // TODO: Apply transformation to every surface normal in object
+        // Apply transformation to every surface normal in object
+        Matrix3d x = MatrixXd::Zero(3, 3);
+
+        for (size_t i = 0; i < 3; i++) {
+            for (size_t j = 0; j < 3; j++) {
+                x(i, j) = m(i, j);
+            }
+        }
+
+        x = x.inverse().transpose();
+
+        for (size_t i = 0; i < obj.normals.size(); i++) {
+            Normal n = obj.normals[i];
+            Vector3d vec;
+            vec << n.x, n.y, n.z;
+            vec = x * vec;
+            vec.normalize();
+            obj.vertices[i] = Vertex{vec(0), vec(1), vec(2)};
+        }
 
         // Store transformed copy
         objects.push_back(obj);
