@@ -11,17 +11,22 @@ Matrix4f get_translation_matrix(float tx, float ty, float tz) {
 }
 
 Matrix4f get_rotation_matrix(float rx, float ry, float rz, float angle) {
+    float norm = Vector3f{rx, ry, rz}.norm();
+    float ux = rx / norm;
+    float uy = ry / norm;
+    float uz = rz / norm;
+
     Matrix4f m = MatrixXf::Zero(4, 4);
 
-    m(0, 0) = pow(rx, 2) + (1 - pow(rx, 2)) * cos(angle);
-    m(0, 1) = rx * ry * (1 - cos(angle)) - rz * sin(angle);
-    m(0, 2) = rx * rz * (1 - cos(angle)) + ry * sin(angle);
-    m(1, 0) = ry * rx * (1 - cos(angle)) + rz * sin(angle);
-    m(1, 1) = pow(ry, 2) + (1 - pow(ry, 2)) * cos(angle);
-    m(1, 2) = ry * rz * (1 - cos(angle)) - rx * sin(angle);
-    m(2, 0) = rz * rx * (1 - cos(angle)) - ry * sin(angle);
-    m(2, 1) = rz * ry * (1 - cos(angle)) + rx * sin(angle);
-    m(2, 2) = pow(rz, 2) + (1 - pow(rz, 2)) * cos(angle);
+    m(0, 0) = pow(ux, 2) + (1 - pow(ux, 2)) * cos(angle);
+    m(0, 1) = ux * uy * (1 - cos(angle)) - uz * sin(angle);
+    m(0, 2) = ux * uz * (1 - cos(angle)) + uy * sin(angle);
+    m(1, 0) = uy * ux * (1 - cos(angle)) + uz * sin(angle);
+    m(1, 1) = pow(uy, 2) + (1 - pow(uy, 2)) * cos(angle);
+    m(1, 2) = uy * uz * (1 - cos(angle)) - ux * sin(angle);
+    m(2, 0) = uz * ux * (1 - cos(angle)) - uy * sin(angle);
+    m(2, 1) = uz * uy * (1 - cos(angle)) + ux * sin(angle);
+    m(2, 2) = pow(uz, 2) + (1 - pow(uz, 2)) * cos(angle);
     m(3, 3) = 1;
 
     return m;

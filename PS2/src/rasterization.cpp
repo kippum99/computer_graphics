@@ -19,7 +19,8 @@ struct VertexInfo {
 
 // Returns true if the point is in perspective (NDC) cube, false otherwise.
 bool is_in_perspective(Vertex &v) {
-    return (v(0) >= -1 && v(0) < 1 && v(1) >= -1 && v(1) < 1);
+    return (v(0) >= -1 && v(0) < 1 && v(1) >= -1 && v(1) < 1
+            && v(2) >= -1 && v(2) < 1);
 }
 
 /* Barycentric coordinates helper functions  */
@@ -67,7 +68,7 @@ Vector3f get_NDC(const Vertex &v, Matrix4f &ndc_transform) {
 // y grows downwards.
 Vector2i get_screen_coordinates(Vector3f &v, int xres, int yres) {
     int x = int((v(0) + 1) / 2 * xres);
-    int y = yres - int((v(1) + 1) / 2 * yres);
+    int y = yres - 1 - int((v(1) + 1) / 2 * yres);
 
     return Vector2i{x, y};
 }
