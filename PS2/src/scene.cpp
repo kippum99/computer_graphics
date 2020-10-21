@@ -35,6 +35,7 @@ Scene::Scene(const string &filename) {
         if (label == "position") {
             float tx, ty, tz;
             iss >> tx >> ty >> tz;
+            camera_pos << tx, ty, tz;
             trans = get_translation_matrix(tx, ty, tz);
             camera_transformation *= trans;
         }
@@ -66,10 +67,6 @@ Scene::Scene(const string &filename) {
         getline(infile, line);
     }
 
-    Vector4f camera_pos_4d = camera_transformation * Vector4f{0, 0, 0, 0};
-    camera_pos = {camera_pos_4d(0) / camera_pos_4d(3),
-                    camera_pos_4d(1) / camera_pos_4d(3),
-                    camera_pos_4d(2) / camera_pos_4d(3)};
     inv_camera_transformation = camera_transformation.inverse();
 
     perspective_projection = MatrixXf::Zero(4, 4);
@@ -146,6 +143,8 @@ Scene::Scene(const string &filename) {
             }
             else if (t == "shininess") {
                 iss >> mat.shininess;
+                getline(infile, line);
+                break;
             }
 
             getline(infile, line);
@@ -219,28 +218,9 @@ Scene::Scene(const string &filename) {
 }
 
 void Scene::render_scene(Image &image, int mode) {
+    Matrix4f ndc_transform = perspective_projection * inv_camera_transformation;
+
     for (Object &obj : objects) {
-        _render_object(obj, image, mode);
+        rasterize_object(obj, lights, camera_pos, ndc_transform, image, mode);
     }
-}
-
-// Converts object's vertices to Cartesian NDC coordinates and rasterizes the
-// object as a wireframe model.
-void Scene::_render_object(Object &obj, Image &image, int mode) {
-    // Convert each vertex to a Cartesian NDC coordinate
-    for (int i = 1; i < obj.vertices.size(); i++) {
-        Vertex v = obj.vertices[i];
-        obj.vertices[i] = _get_NDC(v);
-    }
-
-    rasterize_object(obj, lights, camera_pos, image, mode);
-}
-
-// Returns the Cartesian NDC coordinates of the given vertex origianlly in world
-// coordinates.
-Vertex Scene::_get_NDC(const Vertex &v) const {
-    Vector4f vec{v(0), v(1), v(2), 1};
-    vec = perspective_projection * inv_camera_transformation * vec;
-
-    return Vertex{vec(0) / vec(3), vec(1) / vec(3), vec(2) / vec(3)};
 }

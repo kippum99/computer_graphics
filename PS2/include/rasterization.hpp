@@ -11,7 +11,7 @@
 using namespace Eigen;
 
 void rasterize_object(Object &obj, vector<Light> &lights, Vector3f &camera_pos,
-                        Image &image, int mode);
+                        Matrix4f &ndc_transform, Image &image, int mode);
 
 
 #endif

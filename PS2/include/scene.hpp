@@ -25,9 +25,6 @@ private:
     Matrix4f perspective_projection;
     vector<Object> objects;
     vector<Light> lights;
-
-    void _render_object(Object &obj, Image &image, int mode);
-    Vertex _get_NDC(const Vertex &v) const;
 };
 
 #endif
