@@ -5,6 +5,7 @@
 #include "rasterization.hpp"
 #include "transformation.hpp"
 
+#include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 #include <fstream>
 #include <iostream>
@@ -13,7 +14,7 @@
 #include <unordered_map>
 
 
-Scene::Scene(string filename) {
+Scene::Scene(const string &filename) {
     ifstream infile(filename);
     string line;
 
@@ -22,23 +23,23 @@ Scene::Scene(string filename) {
     getline(infile, line);
 
     // Read camera and perspective paramters
-    camera_transformation = MatrixXd::Identity(4, 4);
-    double n, f, l, r, t, b;
+    camera_transformation = MatrixXf::Identity(4, 4);
+    float n, f, l, r, t, b;
 
     while (!line.empty()) {
-        Matrix4d trans;
+        Matrix4f trans;
         istringstream iss(line);
         string label;
         iss >> label;
 
         if (label == "position") {
-            double tx, ty, tz;
+            float tx, ty, tz;
             iss >> tx >> ty >> tz;
             trans = get_translation_matrix(tx, ty, tz);
             camera_transformation *= trans;
         }
         else if (label == "orientation") {
-            double rx, ry, rz, angle;
+            float rx, ry, rz, angle;
             iss >> rx >> ry >> rz >> angle;
             trans = get_rotation_matrix(rx, ry, rz, angle);
             camera_transformation *= trans;
@@ -65,9 +66,11 @@ Scene::Scene(string filename) {
         getline(infile, line);
     }
 
+    Vector4f camera_pos_4d = camera_transformation * Vector4f{0, 0, 0, 0};
+    camera_pos = {camera_pos_4d(0), camera_pos_4d(1), camera_pos_4d(2)};
     inv_camera_transformation = camera_transformation.inverse();
 
-    perspective_projection = MatrixXd::Zero(4, 4);
+    perspective_projection = MatrixXf::Zero(4, 4);
     perspective_projection(0, 0) = 2 * n / (r - l);
     perspective_projection(0, 2) = (r + l) / (r - l);
     perspective_projection(1, 1) = 2 * n / (t - b);
@@ -82,11 +85,11 @@ Scene::Scene(string filename) {
     while (!line.empty()) {
         istringstream iss(line);
         string _;
-        double x, y, z, r, g, b, k;
+        float x, y, z, r, g, b, k;
 
         iss >> _ >> x >> y >> z >> _ >> r >> g >> b >> _ >> k;
 
-        Light light{x, y, z, Color{r, g, b}, k};
+        Light light{Vector3f{x, y, z}, Color{r, g, b}, k};
         lights.push_back(light);
 
         getline(infile, line);
@@ -125,17 +128,17 @@ Scene::Scene(string filename) {
             iss >> t;
 
             if (t == "ambient") {
-                double r, g, b;
+                float r, g, b;
                 iss >> r >> g >> b;
                 mat.ambient = Color{r, g, b};
             }
             else if (t == "diffuse") {
-                double r, g, b;
+                float r, g, b;
                 iss >> r >> g >> b;
                 mat.diffuse = Color{r, g, b};
             }
             else if (t == "specular") {
-                double r, g, b;
+                float r, g, b;
                 iss >> r >> g >> b;
                 mat.specular = Color{r, g, b};
             }
@@ -149,26 +152,26 @@ Scene::Scene(string filename) {
         obj.material = mat;
 
         // Read all transformations for the object and store in m
-        Matrix4d m = MatrixXd::Identity(4, 4);
+        Matrix4f m = MatrixXf::Identity(4, 4);
 
         while (!line.empty()) {
-            Matrix4d trans;
+            Matrix4f trans;
             istringstream iss(line);
             string t;
             iss >> t;
 
             if (t == "t") {
-                double tx, ty, tz;
+                float tx, ty, tz;
                 iss >> tx >> ty >> tz;
                 trans = get_translation_matrix(tx, ty, tz);
             }
             else if (t == "r") {
-                double rx, ry, rz, angle;
+                float rx, ry, rz, angle;
                 iss >> rx >> ry >> rz >> angle;
                 trans = get_rotation_matrix(rx, ry, rz, angle);
             }
             else if (t == "s") {
-                double sx, sy, sz;
+                float sx, sy, sz;
                 iss >> sx >> sy >> sz;
                 trans = get_scaling_matrix(sx, sy, sz);
             }
@@ -185,13 +188,13 @@ Scene::Scene(string filename) {
         // Apply transformation to every vertex in object
         for (size_t i = 0; i < obj.vertices.size(); i++) {
             Vertex v = obj.vertices[i];
-            Vector4d vec{v(0), v(1), v(2), 1};
+            Vector4f vec{v(0), v(1), v(2), 1};
             vec = m * vec;
             obj.vertices[i] = Vertex{vec(0), vec(1), vec(2)};
         }
 
         // Apply transformation to every surface normal in object
-        Matrix3d x = MatrixXd::Zero(3, 3);
+        Matrix3f x = MatrixXf::Zero(3, 3);
 
         for (size_t i = 0; i < 3; i++) {
             for (size_t j = 0; j < 3; j++) {
@@ -260,13 +263,13 @@ void Scene::_render_object(Object &obj, int xres, int yres, int **grid) {
         obj.vertices[i] = _get_NCD(v);
     }
 
-    rasterize_object(obj, xres, yres, grid);
+    rasterize_object(obj, lights, camera_pos, xres, yres, grid);
 }
 
 // Returns the Cartesian NCD coordinates of the given vertex origianlly in world
 // coordinates.
 Vertex Scene::_get_NCD(const Vertex &v) const {
-    Vector4d vec{v(0), v(1), v(2), 1};
+    Vector4f vec{v(0), v(1), v(2), 1};
     vec = perspective_projection * inv_camera_transformation * vec;
 
     return Vertex{vec(0) / vec(3), vec(1) / vec(3), vec(2) / vec(3)};

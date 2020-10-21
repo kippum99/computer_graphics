@@ -1,7 +1,7 @@
 #include "transformation.hpp"
 
-Matrix4d get_translation_matrix(double tx, double ty, double tz) {
-    Matrix4d m = MatrixXd::Identity(4, 4);
+Matrix4f get_translation_matrix(float tx, float ty, float tz) {
+    Matrix4f m = MatrixXf::Identity(4, 4);
 
     m(0, 3) = tx;
     m(1, 3) = ty;
@@ -10,8 +10,8 @@ Matrix4d get_translation_matrix(double tx, double ty, double tz) {
     return m;
 }
 
-Matrix4d get_rotation_matrix(double rx, double ry, double rz, double angle) {
-    Matrix4d m = MatrixXd::Zero(4, 4);
+Matrix4f get_rotation_matrix(float rx, float ry, float rz, float angle) {
+    Matrix4f m = MatrixXf::Zero(4, 4);
 
     m(0, 0) = pow(rx, 2) + (1 - pow(rx, 2)) * cos(angle);
     m(0, 1) = rx * ry * (1 - cos(angle)) - rz * sin(angle);
@@ -27,8 +27,8 @@ Matrix4d get_rotation_matrix(double rx, double ry, double rz, double angle) {
     return m;
 }
 
-Matrix4d get_scaling_matrix(double sx, double sy, double sz) {
-    Matrix4d m = MatrixXd::Identity(4, 4);
+Matrix4f get_scaling_matrix(float sx, float sy, float sz) {
+    Matrix4f m = MatrixXf::Identity(4, 4);
     m(0, 0) = sx;
     m(1, 1) = sy;
     m(2, 2) = sz;

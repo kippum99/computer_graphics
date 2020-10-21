@@ -5,8 +5,8 @@
 
 using namespace Eigen;
 
-Matrix4d get_translation_matrix(double tx, double ty, double tz);
-Matrix4d get_rotation_matrix(double rx, double ry, double rz, double angle);
-Matrix4d get_scaling_matrix(double sx, double sy, double sz);
+Matrix4f get_translation_matrix(float tx, float ty, float tz);
+Matrix4f get_rotation_matrix(float rx, float ry, float rz, float angle);
+Matrix4f get_scaling_matrix(float sx, float sy, float sz);
 
 #endif

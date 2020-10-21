@@ -6,11 +6,9 @@
 
 
 struct Light {
-    double x;
-    double y;
-    double z;
-    Color c;
-    double k;   // Attenuation parameter
+    Vector3f position;
+    Color color;
+    float k;   // Attenuation parameter
 };
 
 #endif

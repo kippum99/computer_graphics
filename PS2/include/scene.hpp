@@ -14,13 +14,14 @@ using namespace std;
 
 class Scene {
 public:
-    Scene(string filename);
+    Scene(const string &filename);
     void render_scene(int xres, int yres);
 
 private:
-    Matrix4d camera_transformation;
-    Matrix4d inv_camera_transformation;
-    Matrix4d perspective_projection;
+    Matrix4f camera_transformation;
+    Vector3f camera_pos;
+    Matrix4f inv_camera_transformation;
+    Matrix4f perspective_projection;
     vector<Object> objects;
     vector<Light> lights;
 

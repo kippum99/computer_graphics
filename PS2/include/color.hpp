@@ -1,11 +1,10 @@
 #ifndef COLOR_H
 #define COLOR_H
 
+#include <eigen3/Eigen/Dense>
 
-struct Color {
-    double r;
-    double g;
-    double b;
-};
+using namespace Eigen;
+
+typedef Vector3f Color;
 
 #endif

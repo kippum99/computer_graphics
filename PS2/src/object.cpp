@@ -6,7 +6,7 @@
 #include <sstream>
 
 
-Object::Object(string filename) {
+Object::Object(const string &filename) {
     Vertex null_v{0, 0, 0};
     Normal null_vn{0, 0, 0};
     vertices.push_back(null_v);
@@ -17,13 +17,13 @@ Object::Object(string filename) {
     string t;
     while (infile >> t) {
         if (t == "v") {
-            double x, y, z;
+            float x, y, z;
             infile >> x >> y >> z;
             Vertex v{x, y, z};
             vertices.push_back(v);
         }
         else if (t == "vn") {
-            double x, y, z;
+            float x, y, z;
             infile >> x >> y >> z;
             Normal vn{x, y, z};
             normals.push_back(vn);

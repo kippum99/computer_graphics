@@ -12,8 +12,8 @@ using namespace Eigen;
 using namespace std;
 
 
-typedef Vector3d Vertex;
-typedef Vector3d Normal;
+typedef Vector3f Vertex;
+typedef Vector3f Normal;
 
 struct Face {
     // Vertex indices
@@ -31,7 +31,7 @@ struct Material {
     Color ambient;
     Color diffuse;
     Color specular;
-    double shininess;
+    float shininess;
 };
 
 
@@ -44,7 +44,7 @@ public:
     Material material;
 
     Object() {};
-    Object(string filename);
+    Object(const string &filename);
 };
 
 #endif
