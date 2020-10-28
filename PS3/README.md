@@ -4,4 +4,4 @@ modified appropriately to work with the included Eigen folder.
 The program can be compiled and run as follows:
 
 make
-./shaded_renderer [scene_description_file.txt] [xres] [yres] [mode]
+./opengl_renderer [scene_description_file.txt] [xres] [yres]

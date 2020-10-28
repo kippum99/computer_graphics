@@ -57,8 +57,7 @@ struct Point_Light
      */
     float color[3];
 
-    /* 'k' factor for attenuation.
-     */
+    /* 'k' factor for attenuation. */
     float attenuation_k;
 };
 
@@ -145,8 +144,6 @@ int yres;
 int mouse_start_x, mouse_start_y;
 int mouse_current_x, mouse_current_y;
 
-float x_view_angle = 0, y_view_angle = 0;
-
 bool is_pressed = false;
 
 Quaternion last_rotation;
@@ -204,12 +201,8 @@ void display(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
-    // glRotatef(y_view_angle, 1, 0, 0);
-    // glRotatef(x_view_angle, 0, 1, 0);
-
-    /* Specify the inverse rotation of the camera by its
-     * orientation angle about its orientation axis:
-     */
+    // Specify the inverse rotation of the camera by its orientation angle about
+    // its orientation axis:
     glRotatef(-cam_orientation_angle,
               cam_orientation_axis[0], cam_orientation_axis[1], cam_orientation_axis[2]);
 
@@ -222,96 +215,26 @@ void display(void)
     glutSwapBuffers();
 }
 
-/* 'init_lights' function:
- *
- * This function has OpenGL enable its built-in lights to represent our point
- * lights.
- *
- * OpenGL has 8 built-in lights in all, each one with its own unique, integer
- * ID value. When setting the properties of a light, we need to tell OpenGL
- * the ID value of the light we are modifying.
- *
- * The first light's ID value is stored in 'GL_LIGHT0'. The second light's ID
- * value is stored in 'GL_LIGHT1'. And so on. The eighth and last light's ID
- * value is stored in 'GL_LIGHT7'.
- *
- * The properties of the lights are set using the 'glLightfv' and 'glLightf'
- * functions as you will see below.
- */
 void init_lights()
 {
-    /* The following line of code tells OpenGL to enable lighting calculations
-     * during its rendering process. This tells it to automatically apply the
-     * Phong reflection model or lighting model to every pixel it will render.
-     */
     glEnable(GL_LIGHTING);
 
     int num_lights = lights.size();
 
     for(int i = 0; i < num_lights; ++i)
     {
-        /* In this loop, we are going to associate each of our point lights
-         * with one of OpenGL's built-in lights. The simplest way to do this
-         * is to just let our first point light correspond to 'GL_LIGHT0', our
-         * second point light correspond to 'GL_LIGHT1', and so on. i.e. let:
-         *
-         * 'lights[0]' have an ID value of 'GL_LIGHT0'
-         * 'lights[1]' have an ID value of 'GL_LIGHT1'
-         * etc...
-         */
         int light_id = GL_LIGHT0 + i;
 
         glEnable(light_id);
 
-        /* The following lines of code use 'glLightfv' to set the color of
-         * the light. The parameters for 'glLightfv' are:
-         *
-         * - enum light_ID: an integer between 'GL_LIGHT0' and 'GL_LIGHT7'
-         * - enum property: this varies depending on what you are setting
-         *                  e.g. 'GL_AMBIENT' for the light's ambient component
-         * - float* values: a set of values to set for the specified property
-         *                  e.g. an array of RGB values for the light's color
-         *
-         * OpenGL actually lets us specify different colors for the ambient,
-         * diffuse, and specular components of the light. However, since we
-         * are used to only working with one overall light color, we will
-         * just set every component to the light color.
-         */
         glLightfv(light_id, GL_AMBIENT, lights[i].color);
         glLightfv(light_id, GL_DIFFUSE, lights[i].color);
         glLightfv(light_id, GL_SPECULAR, lights[i].color);
 
-        /* The following line of code sets the attenuation k constant of the
-         * light. The difference between 'glLightf' and 'glLightfv' is that
-         * 'glLightf' is used for when the parameter is only one value like
-         * the attenuation constant while 'glLightfv' is used for when the
-         * parameter is a set of values like a color array. i.e. the third
-         * parameter of 'glLightf' is just a float instead of a float*.
-         */
         glLightf(light_id, GL_QUADRATIC_ATTENUATION, lights[i].attenuation_k);
     }
 }
 
-/* 'set_lights' function:
- *
- * While the 'init_lights' function enables and sets the colors of the lights,
- * the 'set_lights' function is supposed to position the lights.
- *
- * You might be wondering why we do not just set the positions of the lights in
- * the 'init_lights' function in addition to the other properties. The reason
- * for this is because OpenGL does lighting computations after it applies the
- * Modelview Matrix to points. This means that the lighting computations are
- * effectively done in camera space. Hence, to ensure that we get the correct
- * lighting computations, we need to make sure that we position the lights
- * correctly in camera space.
- *
- * Now, the 'glLightfv' function, when used to position a light, applies all
- * the current Modelview Matrix to the given light position. This means that
- * to correctly position lights in camera space, we should call the 'glLightfv'
- * function to position them AFTER the Modelview Matrix has been modified by
- * the necessary camera transformations. As you can see in the 'display'
- * function, this is exactly what we do.
- */
 void set_lights()
 {
     int num_lights = lights.size();
@@ -324,9 +247,7 @@ void set_lights()
     }
 }
 
-/* 'draw_objects' function:
- *
- * This function has OpenGL render our objects to the display screen. It
+/* This function has OpenGL render our objects to the display screen.
  */
 void draw_objects()
 {
@@ -466,9 +387,10 @@ float rad2deg(float angle)
     return angle / M_PI * 180.0;
 }
 
-// Returns the (x', y', z') NDC coordinate of the given (x, y) screen
-// coordinate, with Arcball mapping (map points on the surface of a unit
-// sphere.)
+/* Returns the (x', y', z') NDC coordinate of the given (x, y) screen
+ * coordinate, with Arcball mapping (map points on the surface of a unit
+ * sphere.)
+ */
 Eigen::Vector3f screen_to_ndc(int x, int y) {
     float x_ndc = (float) x / xres * 2 - 1;
     float y_ndc = (float) (yres - 1 - y) / yres * 2 - 1;
@@ -490,9 +412,6 @@ Eigen::Vector3f screen_to_ndc(int x, int y) {
  *                      of the key
  * - int x: the x screen coordinate of where the mouse was when the key was pressed
  * - int y: the y screen coordinate of where the mouse was when the key was pressed
- *
- * Our function is pretty straightforward as you can see below. We also do not make
- * use of the 'x' and 'y' parameters.
  */
 void key_pressed(unsigned char key, int x, int y)
 {
@@ -508,9 +427,6 @@ void key_pressed(unsigned char key, int x, int y)
     else if(key == 't')
     {
         wireframe_mode = !wireframe_mode;
-        /* Tell OpenGL that it needs to re-render our scene with the cubes
-         * now as wireframes (or surfaces if they were wireframes before).
-         */
         glutPostRedisplay();
     }
 }
@@ -737,10 +653,6 @@ void parse_scene(const string &filename)
     }
 }
 
-/* The 'main' function:
- *
- * This function is short, but is basically where everything comes together.
- */
 int main(int argc, char* argv[])
 {
     if (argc != 4) {
