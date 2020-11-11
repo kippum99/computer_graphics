@@ -5,7 +5,6 @@
 
 #define GL_GLEXT_PROTOTYPES 1
 #define GL_SILENCE_DEPRECATION
-// #include <GL/glew.h>
 #include <GL/glut.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
@@ -26,7 +25,7 @@ using namespace std;
  */
 
 void init();
-void readShaders();
+void read_shaders();
 void display();
 
 void init_lights();
@@ -162,8 +161,8 @@ bool wireframe_mode = false;
 
 /* Global variables for shader program
  */
- static GLenum shaderProgram;
- static string vertProgFileName, fragProgFileName;
+GLenum shader_program;
+string vert_prog_filename, frag_prog_filename;
 
  ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -211,102 +210,85 @@ void init(void)
 }
 
 /* Reads shader programs. */
-void readShaders() {
-   string vertProgramSource, fragProgramSource;
+void read_shaders() {
+   string vert_program_source, frag_program_source;
 
-   ifstream vertProgFile(vertProgFileName.c_str());
-   if (!vertProgFile)
+   ifstream vert_prog_file(vert_prog_filename.c_str());
+   if (!vert_prog_file)
       cerr << "Error opening vertex shader program\n";
-   ifstream fragProgFile(fragProgFileName.c_str());
-   if (!fragProgFile)
+   ifstream frag_prog_file(frag_prog_filename.c_str());
+   if (!frag_prog_file)
       cerr << "Error opening fragment shader program\n";
 
-   getline(vertProgFile, vertProgramSource, '\0');
-   const char* vertShaderSource = vertProgramSource.c_str();
+   getline(vert_prog_file, vert_program_source, '\0');
+   const char* vert_shader_source = vert_program_source.c_str();
 
-   getline(fragProgFile, fragProgramSource, '\0');
-   const char* fragShaderSource = fragProgramSource.c_str();
+   getline(frag_prog_file, frag_program_source, '\0');
+   const char* frag_shader_source = frag_program_source.c_str();
 
    char buf[1024];
    GLsizei blah;
 
    // Initialize shaders
-   GLenum vertShader, fragShader;
+   GLenum vert_shader, frag_shader;
 
-   shaderProgram = glCreateProgram();
+   shader_program = glCreateProgram();
 
-   vertShader = glCreateShader(GL_VERTEX_SHADER);
-   glShaderSource(vertShader, 1, &vertShaderSource, NULL);
-   glCompileShader(vertShader);
+   vert_shader = glCreateShader(GL_VERTEX_SHADER);
+   glShaderSource(vert_shader, 1, &vert_shader_source, NULL);
+   glCompileShader(vert_shader);
 
-   GLint isCompiled = 0;
-   glGetShaderiv(vertShader, GL_COMPILE_STATUS, &isCompiled);
-   if(isCompiled == GL_FALSE)
+   GLint is_compiled = 0;
+   glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &is_compiled);
+   if(is_compiled == GL_FALSE)
    {
-      GLint maxLength = 0;
-      glGetShaderiv(vertShader, GL_INFO_LOG_LENGTH, &maxLength);
+      GLint max_length = 0;
+      glGetShaderiv(vert_shader, GL_INFO_LOG_LENGTH, &max_length);
 
       // The maxLength includes the NULL character
-      std::vector<GLchar> errorLog(maxLength);
-      glGetShaderInfoLog(vertShader, maxLength, &maxLength, &errorLog[0]);
+      std::vector<GLchar> error_log(max_length);
+      glGetShaderInfoLog(vert_shader, max_length, &max_length, &error_log[0]);
 
       // Provide the infolog in whatever manor you deem best.
       // Exit with failure.
-      for (int i = 0; i < errorLog.size(); i++)
-         cout << errorLog[i];
-      glDeleteShader(vertShader); // Don't leak the shader.
+      for (int i = 0; i < error_log.size(); i++)
+         cout << error_log[i];
+      glDeleteShader(vert_shader); // Don't leak the shader.
       return;
    }
 
-   fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-   glShaderSource(fragShader, 1, &fragShaderSource, NULL);
-   glCompileShader(fragShader);
+   frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+   glShaderSource(frag_shader, 1, &frag_shader_source, NULL);
+   glCompileShader(frag_shader);
 
-   isCompiled = 0;
-   glGetShaderiv(fragShader, GL_COMPILE_STATUS, &isCompiled);
-   if(isCompiled == GL_FALSE)
+   is_compiled = 0;
+   glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &is_compiled);
+   if(is_compiled == GL_FALSE)
    {
-      GLint maxLength = 0;
-      glGetShaderiv(fragShader, GL_INFO_LOG_LENGTH, &maxLength);
+      GLint max_length = 0;
+      glGetShaderiv(frag_shader, GL_INFO_LOG_LENGTH, &max_length);
 
       // The maxLength includes the NULL character
-      std::vector<GLchar> errorLog(maxLength);
-      glGetShaderInfoLog(fragShader, maxLength, &maxLength, &errorLog[0]);
+      std::vector<GLchar> error_log(max_length);
+      glGetShaderInfoLog(frag_shader, max_length, &max_length, &error_log[0]);
 
       // Provide the infolog in whatever manor you deem best.
       // Exit with failure.
-      for (int i = 0; i < errorLog.size(); i++)
-         cout << errorLog[i];
-      glDeleteShader(fragShader); // Don't leak the shader.
+      for (int i = 0; i < error_log.size(); i++)
+         cout << error_log[i];
+      glDeleteShader(frag_shader); // Don't leak the shader.
       return;
    }
 
-   glAttachShader(shaderProgram, vertShader);
-   glAttachShader(shaderProgram, fragShader);
-   glLinkProgram(shaderProgram);
+   glAttachShader(shader_program, vert_shader);
+   glAttachShader(shader_program, frag_shader);
+   glLinkProgram(shader_program);
    cerr << "Enabling fragment program: " << gluErrorString(glGetError()) << endl;
-   glGetProgramInfoLog(shaderProgram, 1024, &blah, buf);
+   glGetProgramInfoLog(shader_program, 1024, &blah, buf);
    cerr << buf;
 
    cerr << "Enabling program object" << endl;
-   glUseProgram(shaderProgram);
-
-   // TODO: Remove the following
-   // leafUniformPos = glGetUniformLocation(shaderProgram, "leaf");
-   // skyUniformPos = glGetUniformLocation(shaderProgram, "sky");
-   // tUniformPos = glGetUniformLocation(shaderProgram, "t");
-   // toggleUniformPos = glGetUniformLocation(shaderProgram, "toggle");
-   //
-   // glActiveTexture(GL_TEXTURE0);
-   // glBindTexture(GL_TEXTURE_2D, skyTex);
-   // glUniform1i(skyUniformPos, 0);
-   //
-   // glActiveTexture(GL_TEXTURE1);
-   // glBindTexture(GL_TEXTURE_2D, leafTex);
-   // glUniform1i(leafUniformPos, 1);
-
-   GLuint uniformTestLoc = glGetUniformLocation(shaderProgram, "uniformTestValue");
-   glUniform1i(uniformTestLoc, 5);
+   glUseProgram(shader_program);
 }
 
 /* The 'display' function is supposed to handle all the processing of points
@@ -793,9 +775,9 @@ int main(int argc, char* argv[])
 
     // Enable Phong shading if mode is 1. Otherwise, use default Gouraud shading.
     if (mode == 1) {
-        vertProgFileName = "src/vertexProgram.glsl";
-        fragProgFileName = "src/fragmentProgram.glsl";
-        readShaders();
+        vert_prog_filename = "src/vertex_program.glsl";
+        frag_prog_filename = "src/fragment_program.glsl";
+        read_shaders();
     }
 
     glutDisplayFunc(display);
