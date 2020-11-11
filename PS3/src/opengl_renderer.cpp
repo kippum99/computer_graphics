@@ -311,7 +311,9 @@ Quaternion compute_rotation_quaternion(float start_x, float start_y,
                     start_ndc.dot(current_ndc)
                     / start_ndc.norm() / current_ndc.norm()));
     Eigen::Vector3f u = start_ndc.cross(current_ndc);
-
+    if (u(0) == 0 && u(1) == 0 && u(2) == 0) {
+        cout << "zero u" << endl;
+    }
     u = u.normalized();
 
     float r = cos(angle / 2);

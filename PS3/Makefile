@@ -7,7 +7,7 @@ LIBS = -framework glut -framework opengl
 EXENAME = opengl_renderer
 
 all: $(SOURCES)
-	$(CXX) $(CXXFLAGS) -o $(EXENAME) $(INCLUDE) $(LIBS) $^
+	$(CXX) $(CXXFLAGS) -o $(EXENAME) $(INCLUDE) $^ $(LIBS)
 
 clean:
 	rm -f *.o src/*.o $(EXENAME)
