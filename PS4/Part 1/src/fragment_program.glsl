@@ -17,13 +17,20 @@
 
      for (int i = 0; i < gl_MaxLights; i++) {
          vec3 l_p = vec3(gl_LightSource[i].position);
-         vec3 l_c = vec3(gl_LightSource[i].ambient);
+
+         // Attenuation (denominator)
+         float d = length(point - l_p);
+         float atten = 1.0 + gl_LightSource[i].quadraticAttenuation
+                                    * pow(d, 2.0);
+
+         vec3 l_c = vec3(gl_LightSource[i].ambient) / atten;
          vec3 l_direction = normalize(l_p - point);
 
          vec3 l_diffuse = l_c * max(0.0, dot(normal, l_direction));
          diffuse_sum += l_diffuse;
 
-         vec3 l_specular = l_c * pow(max(0.0, dot(normal, normalize(e_direction + l_direction))), p);
+         vec3 l_specular = l_c * pow(max(0.0, dot(normal,
+                                    normalize(e_direction + l_direction))), p);
          specular_sum += l_specular;
      }
 
