@@ -170,8 +170,8 @@ bool wireframe_mode = false;
 
 /* Global variables for shader program and texture
  */
-GLenum shaderProgram;
-string vertProgFileName, fragProgFileName;
+GLenum shader_program;
+string vert_prog_filename, frag_prog_filename;
 GLenum color_texture, normal_map;
 
  ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -222,89 +222,90 @@ void init(void)
     current_rotation = Quaternion::Identity();
 }
 
+
 /* Reads shader programs. */
 void read_shaders() {
-   string vertProgramSource, fragProgramSource;
+   string vert_program_source, frag_program_source;
 
-   ifstream vertProgFile(vertProgFileName.c_str());
-   if (!vertProgFile)
+   ifstream vert_prog_file(vert_prog_filename.c_str());
+   if (!vert_prog_file)
       cerr << "Error opening vertex shader program\n";
-   ifstream fragProgFile(fragProgFileName.c_str());
-   if (!fragProgFile)
+   ifstream frag_prog_file(frag_prog_filename.c_str());
+   if (!frag_prog_file)
       cerr << "Error opening fragment shader program\n";
 
-   getline(vertProgFile, vertProgramSource, '\0');
-   const char* vertShaderSource = vertProgramSource.c_str();
+   getline(vert_prog_file, vert_program_source, '\0');
+   const char* vert_shader_source = vert_program_source.c_str();
 
-   getline(fragProgFile, fragProgramSource, '\0');
-   const char* fragShaderSource = fragProgramSource.c_str();
+   getline(frag_prog_file, frag_program_source, '\0');
+   const char* frag_shader_source = frag_program_source.c_str();
 
    char buf[1024];
    GLsizei blah;
 
    // Initialize shaders
-   GLenum vertShader, fragShader;
+   GLenum vert_shader, frag_shader;
 
-   shaderProgram = glCreateProgram();
+   shader_program = glCreateProgram();
 
-   vertShader = glCreateShader(GL_VERTEX_SHADER);
-   glShaderSource(vertShader, 1, &vertShaderSource, NULL);
-   glCompileShader(vertShader);
+   vert_shader = glCreateShader(GL_VERTEX_SHADER);
+   glShaderSource(vert_shader, 1, &vert_shader_source, NULL);
+   glCompileShader(vert_shader);
 
-   GLint isCompiled = 0;
-   glGetShaderiv(vertShader, GL_COMPILE_STATUS, &isCompiled);
-   if(isCompiled == GL_FALSE)
+   GLint is_compiled = 0;
+   glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &is_compiled);
+   if(is_compiled == GL_FALSE)
    {
-      GLint maxLength = 0;
-      glGetShaderiv(vertShader, GL_INFO_LOG_LENGTH, &maxLength);
+      GLint max_length = 0;
+      glGetShaderiv(vert_shader, GL_INFO_LOG_LENGTH, &max_length);
 
       // The maxLength includes the NULL character
-      std::vector<GLchar> errorLog(maxLength);
-      glGetShaderInfoLog(vertShader, maxLength, &maxLength, &errorLog[0]);
+      std::vector<GLchar> error_log(max_length);
+      glGetShaderInfoLog(vert_shader, max_length, &max_length, &error_log[0]);
 
       // Provide the infolog in whatever manor you deem best.
       // Exit with failure.
-      for (int i = 0; i < errorLog.size(); i++)
-         cout << errorLog[i];
-      glDeleteShader(vertShader); // Don't leak the shader.
+      for (int i = 0; i < error_log.size(); i++)
+         cout << error_log[i];
+      glDeleteShader(vert_shader); // Don't leak the shader.
       return;
    }
 
-   fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-   glShaderSource(fragShader, 1, &fragShaderSource, NULL);
-   glCompileShader(fragShader);
+   frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+   glShaderSource(frag_shader, 1, &frag_shader_source, NULL);
+   glCompileShader(frag_shader);
 
-   isCompiled = 0;
-   glGetShaderiv(fragShader, GL_COMPILE_STATUS, &isCompiled);
-   if(isCompiled == GL_FALSE)
+   is_compiled = 0;
+   glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &is_compiled);
+   if(is_compiled == GL_FALSE)
    {
-      GLint maxLength = 0;
-      glGetShaderiv(fragShader, GL_INFO_LOG_LENGTH, &maxLength);
+      GLint max_length = 0;
+      glGetShaderiv(frag_shader, GL_INFO_LOG_LENGTH, &max_length);
 
       // The maxLength includes the NULL character
-      std::vector<GLchar> errorLog(maxLength);
-      glGetShaderInfoLog(fragShader, maxLength, &maxLength, &errorLog[0]);
+      std::vector<GLchar> error_log(max_length);
+      glGetShaderInfoLog(frag_shader, max_length, &max_length, &error_log[0]);
 
       // Provide the infolog in whatever manor you deem best.
       // Exit with failure.
-      for (int i = 0; i < errorLog.size(); i++)
-         cout << errorLog[i];
-      glDeleteShader(fragShader); // Don't leak the shader.
+      for (int i = 0; i < error_log.size(); i++)
+         cout << error_log[i];
+      glDeleteShader(frag_shader); // Don't leak the shader.
       return;
    }
 
-   glAttachShader(shaderProgram, vertShader);
-   glAttachShader(shaderProgram, fragShader);
-   glLinkProgram(shaderProgram);
+   glAttachShader(shader_program, vert_shader);
+   glAttachShader(shader_program, frag_shader);
+   glLinkProgram(shader_program);
    cerr << "Enabling fragment program: " << gluErrorString(glGetError()) << endl;
-   glGetProgramInfoLog(shaderProgram, 1024, &blah, buf);
+   glGetProgramInfoLog(shader_program, 1024, &blah, buf);
    cerr << buf;
 
    cerr << "Enabling program object" << endl;
-   glUseProgram(shaderProgram);
+   glUseProgram(shader_program);
 
-   GLint color_texture_uniform_pos = glGetUniformLocation(shaderProgram, "color_texture");
-   GLint normal_map_uniform_pos = glGetUniformLocation(shaderProgram, "normal_map");
+   GLint color_texture_uniform_pos = glGetUniformLocation(shader_program, "color_texture");
+   GLint normal_map_uniform_pos = glGetUniformLocation(shader_program, "normal_map");
 
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, color_texture);
@@ -412,9 +413,9 @@ void draw_objects()
 
             // Pass tangent and texture coordinate to vertexProgram as an attribute
             GLint tangent_attribute_loc = glGetAttribLocation(
-                                                    shaderProgram, "tangent");
+                                                    shader_program, "tangent");
             GLint texCoord_attribute_loc = glGetAttribLocation(
-                                                shaderProgram, "tex_coord");
+                                                shader_program, "tex_coord");
 
             glVertexAttribPointer(tangent_attribute_loc, 3, GL_FLOAT, GL_FALSE,
                                     0, &objects[i].tangent_buffer[0]);
@@ -739,8 +740,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    vertProgFileName = "src/vertexProgram.glsl";
-    fragProgFileName = "src/fragmentProgram.glsl";
+    vert_prog_filename = "src/vertexProgram.glsl";
+    frag_prog_filename = "src/fragmentProgram.glsl";
     read_shaders();
 
     glutDisplayFunc(display);
