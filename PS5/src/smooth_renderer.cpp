@@ -4,6 +4,7 @@
 #include "structs.hpp"
 
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <math.h>
@@ -128,6 +129,11 @@ float cam_orientation_axis[3];
 float cam_orientation_angle;
 
 float near_param, far_param, left_param, right_param, top_param, bottom_param;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Time step for smoothing
+float h;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -530,11 +536,6 @@ void parse_object(const string &filename, Object &obj)
     }
 }
 
-// Computes vertex normals and stores them in obj.normal_buffer.
-void compute_normals(Object &obj) {
-
-}
-
 void parse_scene(const string &filename)
 {
     ifstream infile(filename);
@@ -713,6 +714,100 @@ void parse_scene(const string &filename)
     }
 }
 
+// Assigns an index to each vertex in hevs
+void index_vertices(vector<HEV*> *hevs) {
+    for (int i = 1; i < hevs->size(); i++) {
+        hevs->at(i)->index = i;
+    }
+}
+
+// Computes cotangent of the angle between the two given vectors.
+float calc_cot(Eigen::Vector3f v1, Eigen::Vector3f v2) {
+    return v1.dot(v2) / v1.cross(v2).norm();
+}
+
+// Computes and returns the total area sum of the indicent faces to given hev.
+float calc_neighbor_area(HEV *hev) {
+    float A = 0;
+
+    HE *he = hev->out;
+
+    do {
+        // compute the area of the face
+        Eigen::Vector3f face_normal = calc_face_normal(he->face);
+        float face_area = face_normal.norm() / 2.f;
+        A += face_area;
+
+        // get halfedge to the next adjacent vertex
+        he = he->flip->next;
+    } while (he != hev->out);
+
+    return A;
+}
+
+// Constructs an n x n sparse identity matrix.
+Eigen::SparseMatrix<float> get_identity_matrix(int n) {
+    Eigen::SparseMatrix<float> I{n, n};
+
+    for (int i = 0; i < n; i++) {
+        I.insert(i, i) = 1.f;
+    }
+
+    return I;
+}
+
+// Constructs F operator in matrix form, where F = I - hL and L is discrete
+// Laplacian
+Eigen::SparseMatrix<float> build_F_operator(vector<HEV*> *hevs) {
+    index_vertices(hevs);
+
+    // Index 0 is not a real vertex
+    int num_vertices = hevs->size() - 1;
+
+    Eigen::SparseMatrix<float> F{num_vertices, num_vertices};
+    F.reserve(Eigen::VectorXi::Constant(num_vertices, 7));
+
+    for (int i = 1; i < hevs->size(); i++) {
+        HEV *hev1 = hevs->at(i);    // v_i
+
+        // Compute the neighbor area sum A
+        float A = calc_neighbor_area(hev1);
+
+        Eigen::Vector3f v1 = get_eigen_vec3(hev1);
+
+        HE *he = hev1->out;
+
+        // Iterate over all vertices adjacent to v_i
+        do {
+            HEV *hev2 = he->next->vertex;   // v_j
+            HEV *hev3 = he->next->next->vertex;
+            HEV *hev4 = he->flip->next->next->vertex;
+
+            Eigen::Vector3f v2 = get_eigen_vec3(hev2);
+            Eigen::Vector3f v3 = get_eigen_vec3(hev3);
+            Eigen::Vector3f v4 = get_eigen_vec3(hev4);
+
+            // Calculate cot(alpha)
+            float cot_a = calc_cot(v2 - v3, v1 - v3);
+
+            // Calculate cot(beta)
+            float cot_b = calc_cot(v2 - v4, v1 - v4);
+
+            int j = hev2->index;
+            F.insert(i - 1, j - 1) = (cot_a + cot_b) / A;
+
+            he = he->flip->next;
+        } while (he != hevs->at(i)->out);
+
+        F.coeffRef(i - 1, i - 1) -= F.row(i - 1).sum();
+    }
+
+    F = get_identity_matrix(num_vertices) - (h / 2.f) * F;
+    F.makeCompressed();
+
+    return F;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 5) {
@@ -723,7 +818,7 @@ int main(int argc, char* argv[])
     string scene_filename = argv[1];
     xres = stoi(argv[2]);
     yres = stoi(argv[3]);
-    float h = stof(argv[4]);    // time step
+    h = stof(argv[4]);    // time step
 
     // Parse the scene description file and put data into data structures.
     parse_scene(scene_filename);
