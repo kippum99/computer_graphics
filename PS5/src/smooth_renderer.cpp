@@ -36,6 +36,11 @@ void key_pressed(unsigned char key, int x, int y);
 Eigen::Vector3f screen_to_ndc(int x, int y);
 Eigen::Matrix4d get_current_rotation();
 
+Eigen::Vector3f get_eigen_vec3(HEV *hev);
+Eigen::Vector3f calc_face_normal(HEF *face);
+Vec3f calc_vertex_normal(HEV *vertex);
+
+Eigen::SparseMatrix<float> build_F_operator(vector<HEV*> *hevs);
 void apply_implicit_fairing();
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,7 +119,7 @@ struct Object
     float shininess;
 };
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 /* The following are the typical camera specifications and parameters.
  */
@@ -169,7 +174,7 @@ bool wireframe_mode = false;
 /* Initializes and sets up the
  * program. It should always be called before anything else.
  */
-void init(void)
+void init()
 {
     // Use "smooth shading" (aka Gouraud shading) when rendering.
     glShadeModel(GL_SMOOTH);
@@ -503,13 +508,6 @@ void fill_object_buffers(Object &obj) {
 }
 
 // Parses the object from the given .obj file and stores it in obj.
-//
-// TODO: clean up comment / clean up memory
-// This function parses .obj file to fill Mesh_Data. Then builds
-// HEF and HEV and stores in obj. Then use HEF to to iterate through
-// each face, and for each face's 3 vertices (get by traversing with
-// half edge), compute vertex normal and fill vertex_buffer and
-// normal_buffer in obj.
 void parse_object(const string &filename, Object &obj)
 {
     Mesh_Data *mesh = new Mesh_Data;
@@ -872,6 +870,13 @@ void apply_implicit_fairing() {
     }
 }
 
+// Cleans up dynamically allocated memory.
+void cleanup() {
+    for (Object &obj : objects) {
+        delete_HE(obj.hevs, obj.hefs);
+    }
+}
+
 int main(int argc, char* argv[])
 {
     if (argc != 5) {
@@ -902,5 +907,5 @@ int main(int argc, char* argv[])
 
     glutMainLoop();
 
-    // TODO: call delete_HE for every object
+    cleanup();
 }
