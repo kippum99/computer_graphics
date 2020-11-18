@@ -474,6 +474,30 @@ Vec3f calc_vertex_normal(HEV *vertex) {
     return Vec3f{normal(0), normal(1), normal(2)};
 }
 
+// Fills vector_buffer and normal_buffer of the given object using the info in
+// its Halfedge data structures, and stores normal value for each vertex in
+// obj.hevs.
+void fill_object_buffers(Object &obj) {
+    for (HEF *hef : *obj.hefs) {
+        HE *he = hef->edge;
+
+        // Traverse the three vertices of the triangular face
+        for (int _ = 0; _ < 3; _++) {
+            HEV *hev = he->vertex;
+
+            Vec3f n = calc_vertex_normal(hev);
+            hev->normal = n;
+
+            obj.vertex_buffer.push_back(
+                Triple{(float)hev->x, (float)hev->y, (float)hev->z}
+            );
+            obj.normal_buffer.push_back(Triple{n.x, n.y, n.z});
+
+            he = he->next;
+        }
+    }
+}
+
 // Parses the object from the given .obj file and stores it in obj.
 //
 // TODO: clean up comment / clean up memory
@@ -516,24 +540,7 @@ void parse_object(const string &filename, Object &obj)
     build_HE(mesh, obj.hevs, obj.hefs);
 
     // Fill vector_buffer and normal_buffer
-    for (HEF *hef : *obj.hefs) {
-        HE *he = hef->edge;
-
-        // Traverse the three vertices of the triangular face
-        for (int _ = 0; _ < 3; _++) {
-            HEV *hev = he->vertex;
-
-            Vec3f n = calc_vertex_normal(hev);
-            hev->normal = n;
-
-            obj.vertex_buffer.push_back(
-                Triple{(float)hev->x, (float)hev->y, (float)hev->z}
-            );
-            obj.normal_buffer.push_back(Triple{n.x, n.y, n.z});
-
-            he = he->next;
-        }
-    }
+    fill_object_buffers(obj);
 }
 
 void parse_scene(const string &filename)
@@ -773,6 +780,11 @@ Eigen::SparseMatrix<float> build_F_operator(vector<HEV*> *hevs) {
         // Compute the neighbor area sum A
         float A = calc_neighbor_area(hev1);
 
+        if (A == 0.f) {
+            // Entire row should be zero
+            continue;
+        }
+
         Eigen::Vector3f v1 = get_eigen_vec3(hev1);
 
         HE *he = hev1->out;
@@ -806,6 +818,50 @@ Eigen::SparseMatrix<float> build_F_operator(vector<HEV*> *hevs) {
     F.makeCompressed();
 
     return F;
+}
+
+// Smoothes mesh using implicit fairing, by recomputing vertex coordinates and
+// vertex normals.
+void apply_implicit_fairing() {
+    for (Object &obj : objects) {
+        // Solve for new x, y, z coordinates using matrix operator F
+        Eigen::SparseMatrix<float> F = build_F_operator(obj.hevs);
+        Eigen::SparseLU<Eigen::SparseMatrix<float>, Eigen::COLAMDOrdering<int>>
+            solver;
+        solver.analyzePattern(F);
+        solver.factorize(F);
+
+        int num_vertices = obj.hevs->size() - 1;
+        Eigen::VectorXf x_0{num_vertices};
+        Eigen::VectorXf y_0{num_vertices};
+        Eigen::VectorXf z_0{num_vertices};
+
+        for (int i = 1; i < obj.hevs->size(); i++) {
+            HEV *hev = obj.hevs->at(i);
+            x_0(i - 1) = hev->x;
+            y_0(i - 1) = hev->y;
+            z_0(i - 1) = hev->z;
+        }
+
+        Eigen::VectorXf x_h{num_vertices};
+        Eigen::VectorXf y_h{num_vertices};
+        Eigen::VectorXf z_h{num_vertices};
+
+        x_h = solver.solve(x_0);
+        y_h = solver.solve(y_0);
+        z_h = solver.solve(z_0);
+
+        // Update x, y, z coordinate of every vertex in obj.hevs
+        for (int i = 1; i < obj.hevs->size(); i++) {
+            HEV *hev = obj.hevs->at(i);
+            hev->x = x_h(i - 1);
+            hev->y = y_h(i - 1);
+            hev->z = z_h(i - 1);
+        }
+
+        // Update vector and normal buffers
+        fill_object_buffers(obj);
+    }
 }
 
 int main(int argc, char* argv[])
