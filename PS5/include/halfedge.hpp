@@ -33,7 +33,7 @@ struct HEF // HEF for halfedge face
 struct HEV // HEV for halfedge vertex
 {
     // the coordinates of the vertex in the mesh
-    double x, y, z;
+    float x, y, z;
     // the halfedge going out off this vertex
     struct HE *out;
     // can be used to store an index for this vertex

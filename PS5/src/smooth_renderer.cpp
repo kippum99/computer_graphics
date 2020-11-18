@@ -481,6 +481,9 @@ Vec3f calc_vertex_normal(HEV *vertex) {
 // its Halfedge data structures, and stores normal value for each vertex in
 // obj.hevs.
 void fill_object_buffers(Object &obj) {
+    obj.vertex_buffer.clear();
+    obj.normal_buffer.clear();
+
     for (HEF *hef : *obj.hefs) {
         HE *he = hef->edge;
 
@@ -491,9 +494,7 @@ void fill_object_buffers(Object &obj) {
             Vec3f n = calc_vertex_normal(hev);
             hev->normal = n;
 
-            obj.vertex_buffer.push_back(
-                Triple{(float)hev->x, (float)hev->y, (float)hev->z}
-            );
+            obj.vertex_buffer.push_back(Triple{hev->x, hev->y, hev->z});
             obj.normal_buffer.push_back(Triple{n.x, n.y, n.z});
 
             he = he->next;
