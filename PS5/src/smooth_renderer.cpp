@@ -36,6 +36,8 @@ void key_pressed(unsigned char key, int x, int y);
 Eigen::Vector3f screen_to_ndc(int x, int y);
 Eigen::Matrix4d get_current_rotation();
 
+void apply_implicit_fairing();
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Structs storing information for rendering
@@ -424,18 +426,19 @@ Eigen::Vector3f screen_to_ndc(int x, int y) {
  */
 void key_pressed(unsigned char key, int x, int y)
 {
-    /* If 'q' is pressed, quit the program.
-     */
-    if(key == 'q')
-    {
+    // If 'q' is pressed, quit the program.
+    if(key == 'q') {
         exit(0);
     }
-    /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
-     * render our cubes as surfaces of wireframes.
-     */
-    else if(key == 't')
-    {
+    // If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
+    // render our cubes as surfaces of wireframes.
+    else if(key == 't') {
         wireframe_mode = !wireframe_mode;
+        glutPostRedisplay();
+    }
+    // If 's' is pressed, smooth the mesh using implicit fairing.
+    else if (key == 's') {
+        apply_implicit_fairing();
         glutPostRedisplay();
     }
 }
@@ -756,9 +759,13 @@ float calc_neighbor_area(HEV *hev) {
 Eigen::SparseMatrix<float> get_identity_matrix(int n) {
     Eigen::SparseMatrix<float> I{n, n};
 
+    I.reserve(Eigen::VectorXi::Constant(n, 1));
+
     for (int i = 0; i < n; i++) {
         I.insert(i, i) = 1.f;
     }
+
+    I.makeCompressed();
 
     return I;
 }
@@ -893,4 +900,6 @@ int main(int argc, char* argv[])
     glutKeyboardFunc(key_pressed);
 
     glutMainLoop();
+
+    // TODO: call delete_HE for every object
 }
