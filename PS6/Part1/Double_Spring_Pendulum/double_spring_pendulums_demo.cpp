@@ -189,25 +189,27 @@ void update_path()
 
 void update_pendulums()
 {
+    float x_diff = m2.x - m1.x;
+    float y_diff = m2.y - m1.y;
     float norm1 = sqrt(pow(m1.x, 2) + pow(m1.y, 2));
     float norm2 = sqrt(pow(m2.x - m1.x, 2) + pow(m2.y - m1.y, 2));
 
     m1.px = m1.px
             - dt * m1.k * m1.x * (norm1 - m1.rl) / norm1
-            + dt * m2.k * (m2.x - m1.x) * (norm2 - m2.rl) / norm2;
+            + dt * m2.k * x_diff * (norm2 - m2.rl) / norm2;
     m1.x += (dt / m1.m) * m1.px;
 
     m1.py = m1.py
             - dt * m1.k * m1.y * (norm1 - m1.rl) / norm1
-            + dt * m2.k * (m2.y - m1.y) * (norm2 - m2.rl) / norm2
+            + dt * m2.k * y_diff * (norm2 - m2.rl) / norm2
             + dt * m1.m * g;
     m1.y += (dt / m1.m) * m1.py;
 
-    m2.px -= dt * m2.k * (m2.x - m1.x) * (norm2 - m2.rl) / norm2;
+    m2.px -= dt * m2.k * x_diff * (norm2 - m2.rl) / norm2;
     m2.x += (dt / m2.m) * m2.px;
 
     m2.py = m2.py
-            - dt * m2.k * (m2.y - m1.y) * (norm2 - m2.rl) / norm2
+            - dt * m2.k * y_diff * (norm2 - m2.rl) / norm2
             + dt * m2.m * g;
     m2.y += (dt / m2.m) * m2.py;
 
