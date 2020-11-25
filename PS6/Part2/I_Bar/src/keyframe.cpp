@@ -50,9 +50,9 @@ void interpolate_transformations();
 
 void key_pressed(unsigned char key, int x, int y);
 
-Rotation quat2rot(Quaternion q);
-Quaternion rot2quat(Rotation r);
-Quaternion normalized(Quaternion q);
+Rotation quat2rot(const Quaternion &q);
+Quaternion rot2quat(const Rotation &r);
+Quaternion normalized(const Quaternion &q);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -263,7 +263,7 @@ float rad2deg(float angle)
     return angle / M_PI * 180.0;
 }
 
-Quaternion rot2quat(Rotation r) {
+Quaternion rot2quat(const Rotation &r) {
     float angle = deg2rad(r.angle);     // Angle in radians
 
     Quaternion q;
@@ -275,7 +275,7 @@ Quaternion rot2quat(Rotation r) {
     return q;
 }
 
-Rotation quat2rot(Quaternion q) {
+Rotation quat2rot(const Quaternion &q) {
     // Choose an arbitrary rotation axis if sqrt is 0 (corresponds to
     // rotation angle being zero)
     float denom = sqrt(1 - pow(q.s, 2));
@@ -293,7 +293,7 @@ Rotation quat2rot(Quaternion q) {
     return r;
 }
 
-Quaternion normalized(Quaternion q) {
+Quaternion normalized(const Quaternion &q) {
     float norm = sqrt(pow(q.s, 2) + pow(q.x, 2) + pow(q.y, 2) + pow(q.z, 2));
     assert(norm != 0);
 
@@ -383,7 +383,7 @@ void parse_script(const string &filename)
  *
  * vec_p = [p_i-1, p_i, p_i+1, p_i+2]
  */
-float compute_f(float u, Eigen::Vector4f vec_p) {
+float compute_f(const float u, const Eigen::Vector4f &vec_p) {
     Eigen::Vector4f vec_u{1, u, pow(u, 2), pow(u, 3)};
 
     return vec_u.dot(B * vec_p);
