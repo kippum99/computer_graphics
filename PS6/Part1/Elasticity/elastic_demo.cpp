@@ -1,17 +1,3 @@
-/* CS/CNS 171
- * Fall 2015
- * Written by Kevin (Kevli) Li (Class of 2016)
- *
- * This program is meant to simulate elasticity in a 2D mesh. The only
- * part of the program that you need to worry about is marked with a
- * TODO. You should not need to edit any other code in this file.
- *
- * The file is sparsely commented since you are not required to understand
- * everything in this program. If you have any questions, feel free to send
- * me an email.
- */
-
-/* Usual includes and namespaces */
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <Eigen/Dense>
@@ -23,8 +9,7 @@
 #include <iostream>
 #include <vector>
 
-/* Separate header file */
-#include "utils.h"
+#include "utils.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -88,7 +73,7 @@ static bool parse_OBJ(std::string file_name)
         while(getline(file_in, read_line))
         {
             std::vector<std::string> tokens = split(read_line, ' ');
-            
+
             if(tokens.size() == 0)
                 continue;
 
@@ -101,15 +86,15 @@ static bool parse_OBJ(std::string file_name)
 
                 v.restx = v.x;
                 v.resty = v.y;
-    
+
                 v.vx = 0;
                 v.vy = 0;
-    
+
                 v.fx = 0;
                 v.fy = 0;
-    
+
                 v.mass = 1.0;
-    
+
                 vertices.push_back(v);
             }
             // Read in face, initialize fields and corresponding rest matrix,
@@ -117,11 +102,11 @@ static bool parse_OBJ(std::string file_name)
             else if(tokens[0].compare("f") == 0)
             {
                 Triangle t;
-    
+
                 t.p1 = stoi(split(tokens[1], '/').at(0)) - 1;
                 t.p2 = stoi(split(tokens[2], '/').at(0)) - 1;
                 t.p3 = stoi(split(tokens[3], '/').at(0)) - 1;
-    
+
                 // Don't worry about this matrix; it's needed for the simulation
                 MatrixXd restmat(2,2);
                 restmat << vertices.at(t.p1).restx - vertices.at(t.p3).restx,
@@ -129,15 +114,15 @@ static bool parse_OBJ(std::string file_name)
                            vertices.at(t.p1).resty - vertices.at(t.p3).resty,
                            vertices.at(t.p2).resty - vertices.at(t.p3).resty;
                 restmats.push_back(restmat);
-    
+
                 // Also don't worry about the rest area
-                t.restarea = 1.0 / 2.0 * abs(restmat(0,0) * restmat(1,1) -
+                t.restarea = 1.0 / 2.0 * abs_val(restmat(0,0) * restmat(1,1) -
                                              restmat(1,0) * restmat(0,1));
-    
+
                 triangles.push_back(t);
             }
         }
-        
+
         file_in.close();
         return 1;
     }
@@ -149,11 +134,11 @@ static bool parse_OBJ(std::string file_name)
 }
 
 void init(void)
-{   
+{
     // Tells OpenGL to draw our points with their fastest method
     glEnable(GL_POINT_SMOOTH);
     glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);
-    
+
     // Tells OpenGL to draw our lines with their fastest method
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_FASTEST);
@@ -165,7 +150,7 @@ void init(void)
     glOrtho(leftParam, rightParam,
             bottomParam, topParam,
             nearParam, farParam);
-    
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
@@ -189,29 +174,29 @@ void reshape(int width, int height)
 void updateforces(int index)
 {
     Triangle t = triangles[index];
-    
+
     MatrixXd ds(2, 2);
     ds << vertices[t.p1].x - vertices[t.p3].x, vertices[t.p2].x - vertices[t.p3].x,
           vertices[t.p1].y - vertices[t.p3].y, vertices[t.p2].y - vertices[t.p3].y;
-    
+
     MatrixXd dminverse = (restmats[index]).inverse();
     MatrixXd f = ds * dminverse;
     MatrixXd finvt = (f.inverse()).transpose();
-    
+
     float i1 = (f.transpose() * f).trace();
     float j = f(0,0) * f(1,1) - f(1,0) * f(0,1);
-    
+
     MatrixXd p = f - finvt + 1.0 / 2.0 * log(j * j) * finvt;
     MatrixXd h = -t.restarea * p * dminverse.transpose();
-    
+
     vertices[t.p1].fx += h(0,0);
     vertices[t.p2].fx += h(0,1);
     vertices[t.p3].fx += -h(0,0) - h(0,1);
-    
+
     vertices[t.p1].fy += h(1,0);
     vertices[t.p2].fy += h(1,1);
     vertices[t.p3].fy += -h(1,0) - h(1,1);
-    
+
     pe += t.restarea * ( (i1 - 2) - log(j) + 1.0 / 2.0 * log(j) * log(j) );
 }
 
@@ -221,7 +206,7 @@ void drawTriangle(int index)
 
     // Set drawing color to cyan
     glColor3f(0, 1, 1);
- 
+
     // In practice, it's always better to use vertex pointers for drawing; but
     // since this is meant to be a quick demo, we're being lazy here and using
     // glVertex instead. glVertex has been deprecated in a lot of new versions
@@ -233,10 +218,10 @@ void drawTriangle(int index)
         glVertex2f(vertices[t.p3].x, vertices[t.p3].y);
     }
     glEnd();
-    
+
     // Set drawing color to black
     glColor3f(0, 0, 0);
-    
+
     glBegin(GL_LINE_LOOP);
     {
         glVertex2f(vertices[t.p1].x, vertices[t.p1].y);
@@ -300,14 +285,14 @@ void draw_text()
 }
 
 void display(void)
-{ 
+{
     glClear(GL_COLOR_BUFFER_BIT);
-    
+
     // Reset our kinetic and potential energies, since we're going to recompute
     // them for the new iteration.
     ke = 0.0;
     pe = 0.0;
-    
+
     // Reset our forces to 0, since we're going to recompute them for the new
     // iteration.
     for(int i = 0; i < vertices.size(); i++)
@@ -315,15 +300,15 @@ void display(void)
         vertices[i].fx = 0;
         vertices[i].fy = 0;
     }
-    
+
     // Draw the last iterations's mesh
     for(int i = 0; i < triangles.size(); i++)
         drawTriangle(i);
-    
+
     // Update the forces for the next iteration
     for(int i = 0; i < triangles.size(); i++)
         updateforces(i);
-    
+
     // Update the positions and velocities of each vertex in our mesh
     for(int i = 0; i < vertices.size(); i++)
     {
@@ -331,53 +316,13 @@ void display(void)
         // our mouse is
         if(dragging && draggedPoint == i)
             continue;
-        
-        /******************************* TODO *******************************/
 
-        /* Your task is to write some lines of code to correctly update:
-         *
-         *     vertices[i].x
-         *     vertices[i].y
-         *     vertices[i].vx
-         *     vertices[i].vy
-         *
-         * (not necessarily in that order)
-         * You are to update these variables knowing that this system follows
-         * the standard Lagrangian:
-         *
-         *     L = 1/2 * m * ( v_x^2 + v_y^2 ) - U( x, y )
-         *
-         * Remember that:
-         *
-         *     d/dx U( x, y ) = -f_x = -vertices[i].fx
-         *     d/dy U( x, y ) = -f_y = -vertices[i].fy
-         *
-         * where vertices[i].fx and vertices[i].fy are already computed for you via
-         * the updateforces() function.
-         *
-         * Besides the above mentioned variables, you'll find the variable, tstep,
-         * necessary.
-         *
-         * As always, write the discrete analog to the Lagrangian, L, above, and
-         * use the discrete Euler-Lagrangian equations to solve for the update rules.
-         * HINT: this is not that hard; you might even see this as a trick question...
-         */
+        vertices[i].vx += (tstep / vertices[i].mass) * vertices[i].fx;
+        vertices[i].x += tstep * vertices[i].vx;
 
+        vertices[i].vy += (tstep / vertices[i].mass) * vertices[i].fy;
+        vertices[i].y += tstep * vertices[i].vy;
 
-
-
-
-
-
-
-
-
-
-
-         
-
-        /****************************** END TODO ****************************/
-        
         ke += 1.0 / 2.0 * ( vertices[i].vx * vertices[i].vx
                             + vertices[i].vy * vertices[i].vy );
     }
@@ -405,14 +350,14 @@ void keyPressed(unsigned char key, int x, int y)
 /* Checks if mouse click is near a "clickrad" radius of a vertex, and if
  * it is, return that vertex's index in the list */
 int getClickedPoint(float x, float y)
-{    
+{
     for(int i = 0; i < vertices.size(); i++)
     {
         if(vertices[i].x > x - clickRad && vertices[i].x < x + clickRad &&
            vertices[i].y > y - clickRad && vertices[i].y < y + clickRad)
             return i;
     }
-    
+
     return -1;
 }
 
@@ -423,13 +368,13 @@ void mousePressed(int button, int state, int x, int y)
     {
         int index = getClickedPoint(((float) x - (float) xres / 2.0) * mouseScaleX,
                                     -((float) y - (float) yres / 2.0) * mouseScaleY);
-        
+
         if(index == -1)
             return;
-        
+
         mouseX = x;
         mouseY = y;
-        
+
         draggedPoint = index;
         dragging = true;
     }
@@ -446,10 +391,10 @@ void mouseMoved(int x, int y)
     {
         float dx = (float) (x - mouseX) * mouseScaleX;
         float dy = (float) (y - mouseY) * mouseScaleY;
-        
+
         vertices[draggedPoint].x += dx;
         vertices[draggedPoint].y -= dy;
-        
+
         mouseX = x;
         mouseY = y;
     }
@@ -459,17 +404,17 @@ int main(int argc, char* argv[])
 {
     std::cout << "Parsing in obj file: " << argv[1] << "\n";
     bool success = parse_OBJ(argv[1]);
-    
+
     if(!success)
     {
         exit(1);
     }
-    
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA);
     glutInitWindowSize(xres, yres);
     glutInitWindowPosition(0, 0);
-    
+
     glutCreateWindow("Elastic Demo");
     init();
     glutDisplayFunc(display);
