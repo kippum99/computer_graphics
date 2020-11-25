@@ -1,6 +1,3 @@
-#include "helpers.hpp"
-// #include "quaternion.hpp"
-
 #include <Eigen/Dense>
 #include <GL/glew.h>
 #include <GL/glut.h>
@@ -16,7 +13,7 @@
 using namespace std;
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 /* Structs storing information for rendering
  */
 
@@ -36,38 +33,26 @@ struct Rotation {
 };
 
 struct Quaternion {
-    float r;
-    float i;
-    float j;
-    float k;
+    float s, x, y, z;
 };
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
+////////////////////////////////////////////////////////////////////////////////
 /* Function prototypes
  */
 
 void init(void);
 void display(void);
 
-// void init_lights();
-// void set_lights();
-// void draw_objects();
 void draw_frame();
 void draw_IBar();
 void parse_script();
 void interpolate_transformations();
 
-// void mouse_pressed(int button, int state, int x, int y);
-// void mouse_moved(int x, int y);
 void key_pressed(unsigned char key, int x, int y);
 
-Rotation quat2rot(Quaternion quat);
-Quaternion rot2quat(Rotation rot);
-
-// Eigen::Vector3f screen_to_ndc(int x, int y);
-// Eigen::Matrix4d get_current_rotation();
-
+Rotation quat2rot(Quaternion q);
+Quaternion rot2quat(Rotation r);
+Quaternion normalized(Quaternion q);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -103,7 +88,6 @@ GLUquadricObj *quadratic;
 ////////////////////////////////////////////////////////////////////////////////
 /* Animation global variables. */
 
-
 // Total number of frames
 int num_frames;
 
@@ -126,30 +110,14 @@ vector<Quaternion> rotations;
 Eigen::Matrix4f B;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-
-
-// /* Lists of lights and objects.
-//  */
-//
-// vector<Point_Light> lights;
-// vector<Object> objects;
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
+/* Other global variables */
 
 int xres;
 int yres;
 
-// int mouse_start_x, mouse_start_y;
-// int mouse_current_x, mouse_current_y;
-
-// bool is_pressed = false;
-
-// Quaternion last_rotation;
-// Quaternion current_rotation;
-
 bool wireframe_mode = false;
+
+////////////////////////////////////////////////////////////////////////////////
 
 /* Function implementations.
  */
@@ -159,19 +127,6 @@ bool wireframe_mode = false;
  */
 void init(void)
 {
-    // // Use "smooth shading" (aka Gouraud shading) when rendering.
-    // glShadeModel(GL_SMOOTH);
-    //
-    // // Use backface culling.
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
-    //
-    // // Use depth buffering.
-    // glEnable(GL_DEPTH_TEST);
-    //
-    // // Automatically normalize our normal vectors.
-    // glEnable(GL_NORMALIZE);
-
     glEnable(GL_COLOR_MATERIAL);
 
     // Enable "vertex array" and "normal array" functionality.
@@ -184,12 +139,6 @@ void init(void)
     glLightfv(GL_LIGHT0, GL_DIFFUSE, light_color);
     glLightfv(GL_LIGHT0, GL_SPECULAR, light_color);
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    // Set material properties of IBar
-    // glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_reflect);
-    // glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_reflect);
-    // glMaterialfv(GL_FRONT, GL_SPECULAR, specular_reflect);
-    // glMaterialf(GL_FRONT, GL_SHININESS, shininess);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -214,8 +163,6 @@ void init(void)
 
     // Interpolate transformations for all frames
     interpolate_transformations();
-
-    // init_lights();
 }
 
 void reshape(int width, int height)
@@ -238,11 +185,6 @@ void display(void)
 
     glTranslatef(-cam_position[0], -cam_position[1], -cam_position[2]);
 
-    // glMultMatrixd(get_current_rotation().data());
-
-    // set_lights();
-    // draw_objects();
-
     // Draw frame
     glEnable(GL_LIGHTING);
     draw_frame();
@@ -251,42 +193,9 @@ void display(void)
     glutSwapBuffers();
 }
 
-// void init_lights()
-// {
-//     glEnable(GL_LIGHTING);
-//
-//     int num_lights = lights.size();
-//
-//     for(int i = 0; i < num_lights; ++i)
-//     {
-//         int light_id = GL_LIGHT0 + i;
-//
-//         glEnable(light_id);
-//
-//         glLightfv(light_id, GL_AMBIENT, lights[i].color);
-//         glLightfv(light_id, GL_DIFFUSE, lights[i].color);
-//         glLightfv(light_id, GL_SPECULAR, lights[i].color);
-//
-//         glLightf(light_id, GL_QUADRATIC_ATTENUATION, lights[i].attenuation_k);
-//     }
-// }
-
-// void set_lights()
-// {
-//     int num_lights = lights.size();
-//
-//     for(int i = 0; i < num_lights; ++i)
-//     {
-//         int light_id = GL_LIGHT0 + i;
-//
-//         glLightfv(light_id, GL_POSITION, lights[i].position);
-//     }
-// }
-
 /* Draws the current frame for the animated IBar, applying transform
  * specifications for the frame. */
 void draw_frame() {
-    cout << "curr frame " << curr_frame << endl;
     // Get current transformations
     Triple translation = translations[curr_frame];
     Triple scale = scales[curr_frame];
@@ -295,12 +204,11 @@ void draw_frame() {
     glPushMatrix();
     glTranslatef(translation.x, translation.y, translation.z);
     glScalef(scale.x, scale.y, scale.z);
-    // glRotatef(rotation.angle, rotation.x, rotation.y, rotation.z);
+    glRotatef(rotation.angle, rotation.x, rotation.y, rotation.z);
     draw_IBar();
     glPopMatrix();
 }
 
-// TODO: remove this and just call from other file
 void draw_IBar()
 {
     /* Parameters for drawing the cylinders */
@@ -343,190 +251,58 @@ void draw_IBar()
     glPopMatrix();
 }
 
-/* Updates IBar's position. */
-void update()
-{
-    // float norm = sqrt(pow(m1.x, 2) + pow(m1.y, 2));
-    //
-    // m1.px -= dt * m1.k * m1.x * (norm - m1.rl) / norm;
-    // m1.x += (dt / m1.m) * m1.px;
-    //
-    // m1.py = m1.py - dt * m1.k * m1.y * (norm - m1.rl) / norm + dt * m1.m * g;
-    // m1.y += (dt / m1.m) * m1.py;
-    //
-    // t += dt;
-}
-
-
-//
-//
-// /* This function has OpenGL render our objects to the display screen.
-//  */
-// void draw_objects()
-// {
-//     int num_objects = objects.size();
-//
-//     for(int i = 0; i < num_objects; ++i)
-//     {
-//         glPushMatrix();
-//
-//         {
-//             int num_transforms = objects[i].transforms.size();
-//
-//             for(int j = num_transforms - 1; j >= 0; j--)
-//             {
-//                 if (objects[i].transforms[j].transform_type == 0) {
-//                     glTranslatef(objects[i].transforms[j].x,
-//                                 objects[i].transforms[j].y,
-//                                 objects[i].transforms[j].z);
-//                 }
-//                 else if (objects[i].transforms[j].transform_type == 1) {
-//                     glRotatef(objects[i].transforms[j].rotation_angle,
-//                                 objects[i].transforms[j].x,
-//                                 objects[i].transforms[j].y,
-//                                 objects[i].transforms[j].z);
-//                 }
-//                 else {
-//                     glScalef(objects[i].transforms[j].x,
-//                                 objects[i].transforms[j].y,
-//                                 objects[i].transforms[j].z);
-//                 }
-//             }
-//
-//             glMaterialfv(GL_FRONT, GL_AMBIENT, objects[i].ambient_reflect);
-//             glMaterialfv(GL_FRONT, GL_DIFFUSE, objects[i].diffuse_reflect);
-//             glMaterialfv(GL_FRONT, GL_SPECULAR, objects[i].specular_reflect);
-//             glMaterialf(GL_FRONT, GL_SHININESS, objects[i].shininess);
-//
-//             glVertexPointer(3, GL_FLOAT, 0, &objects[i].vertex_buffer[0]);
-//             glNormalPointer(GL_FLOAT, 0, &objects[i].normal_buffer[0]);
-//
-//             int buffer_size = objects[i].vertex_buffer.size();
-//
-//             if(!wireframe_mode)
-//                 glDrawArrays(GL_TRIANGLES, 0, buffer_size);
-//             else
-//                 for(int j = 0; j < buffer_size; j += 3)
-//                     glDrawArrays(GL_LINE_LOOP, j, 3);
-//         }
-//
-//         glPopMatrix();
-//     }
-// }
-
-// Quaternion compute_rotation_quaternion(float start_x, float start_y,
-//                                         float current_x, float current_y)
-// {
-//     Eigen::Vector3f start_ndc = screen_to_ndc(start_x, start_y);
-//     Eigen::Vector3f current_ndc = screen_to_ndc(current_x, current_y);
-//
-//     float angle = acos(min(1.f,
-//                     start_ndc.dot(current_ndc)
-//                     / start_ndc.norm() / current_ndc.norm()));
-//     Eigen::Vector3f u = start_ndc.cross(current_ndc);
-//     u = u.normalized();
-//
-//     float r = cos(angle / 2);
-//     float i = u(0) * sin(angle / 2);
-//     float j = u(1) * sin(angle / 2);
-//     float k = u(2) * sin(angle / 2);
-//
-//     return Quaternion{r, i, j, k};
-// }
-
-// Eigen::Matrix4d get_current_rotation() {
-//     Quaternion q = current_rotation * last_rotation;
-//
-//     return q.get_rotation_matrix();
-// }
-
-// void mouse_pressed(int button, int state, int x, int y)
-// {
-//     /* If the left-mouse button was clicked down, then...
-//      */
-//     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
-//     {
-//         /* Store the mouse position in our global variables.
-//          */
-//         mouse_start_x = x;
-//         mouse_start_y = y;
-//
-//         is_pressed = true;
-//     }
-//     /* If the left-mouse button was released up, then...
-//      */
-//     else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
-//     {
-//         /* Mouse is no longer being pressed, so set our indicator to false.
-//          */
-//         is_pressed = false;
-//
-//         last_rotation = current_rotation * last_rotation;
-//         current_rotation = Quaternion::Identity();
-//     }
-// }
-//
-// void mouse_moved(int x, int y)
-// {
-//     /* If the left-mouse button is being clicked down...
-//      */
-//     if(is_pressed)
-//     {
-//         mouse_current_x = x;
-//         mouse_current_y = y;
-//         // current_rotation = compute_rotation_quaternion(
-//         //                     mouse_start_x, mouse_start_y,
-//         //                     mouse_current_x, mouse_current_y);
-//         glutPostRedisplay();
-//     }
-// }
-
-/* 'deg2rad' function:
- *
- * Converts given angle in degrees to radians.
+/* Converts given angle in degrees to radians.
  */
 float deg2rad(float angle)
 {
     return angle * M_PI / 180.0;
 }
 
-/* 'rad2deg' function:
- *
- * Converts given angle in radians to degrees.
+/* Converts given angle in radians to degrees.
  */
 float rad2deg(float angle)
 {
     return angle / M_PI * 180.0;
 }
 
-// TODO: COMPLETE
-Quaternion rot2quat(Rotation rot) {
-    return Quaternion{};
+Quaternion rot2quat(Rotation r) {
+    float angle = deg2rad(r.angle);     // Angle in radians
+
+    Quaternion q;
+    q.s = cos(angle / 2);
+    q.x = r.x * sin(angle / 2);
+    q.y = r.y * sin(angle / 2);
+    q.z = r.z * sin(angle / 2);
+
+    return q;
 }
 
-Rotation quat2rot(Quaternion quat) {
-    return Rotation{};
+Rotation quat2rot(Quaternion q) {
+    // Choose an arbitrary rotation axis if sqrt is 0 (corresponds to
+    // rotation angle being zero)
+    float denom = sqrt(1 - pow(q.s, 2));
+
+    if (denom == 0) {
+        return Rotation{1, 0, 0, 0};
+    }
+
+    Rotation r;
+    r.x = q.x / denom;
+    r.y = q.y / denom;
+    r.z = q.z / denom;
+    r.angle = rad2deg(2 * acos(q.s));
+
+    return r;
 }
 
-// /* Returns the (x', y', z') NDC coordinate of the given (x, y) screen
-//  * coordinate, with Arcball mapping (map points on the surface of a unit
-//  * sphere.)
-//  */
-// Eigen::Vector3f screen_to_ndc(int x, int y) {
-//     float x_ndc = (float) x / xres * 2 - 1;
-//     float y_ndc = (float) (yres - 1 - y) / yres * 2 - 1;
-//     float z_ndc = 0;
-//
-//     if (pow(x_ndc, 2) + pow(y_ndc, 2) <= 1) {
-//         z_ndc = sqrt(1 - pow(x_ndc, 2) - pow(y_ndc, 2));
-//     }
-//
-//     return Eigen::Vector3f{x_ndc, y_ndc, z_ndc};
-// }
+Quaternion normalized(Quaternion q) {
+    float norm = sqrt(pow(q.s, 2) + pow(q.x, 2) + pow(q.y, 2) + pow(q.z, 2));
+    assert(norm != 0);
 
-/* 'key_pressed' function:
- *
- * This function is meant to respond to key pressed on the keyboard. The
+    return Quaternion{q.s / norm, q.x / norm, q.y / norm, q.z / norm};
+}
+
+/* This function is meant to respond to key pressed on the keyboard. The
  * parameters are:
  *
  * - unsigned char key: the character of the key itself or the ASCII value of
@@ -558,62 +334,12 @@ void key_pressed(unsigned char key, int x, int y)
         glutPostRedisplay();
     }
 }
-//
-// void parse_object(const string &filename, Object &obj)
-// {
-//     vector<Triple> vertices;
-//     vector<Triple> normals;
-//
-//     // To help with indexing from 1
-//     vertices.push_back(Triple{0, 0, 0});
-//     normals.push_back(Triple{0, 0, 0});
-//
-//     ifstream infile(filename);
-//     string t;
-//
-//     while (infile >> t) {
-//         if (t == "v") {
-//             float x, y, z;
-//             infile >> x >> y >> z;
-//             Triple v{x, y, z};
-//             vertices.push_back(v);
-//         }
-//         else if (t == "vn") {
-//             float x, y, z;
-//             infile >> x >> y >> z;
-//             Triple vn{x, y, z};
-//             normals.push_back(vn);
-//         }
-//         else if (t == "f") {
-//             string s1, s2, s3;
-//             infile >> s1 >> s2 >> s3;
-//             int v1, v2, v3, n1, n2, n3;
-//
-//             tokenize_string(s1, "//") >> v1 >> n1;
-//             tokenize_string(s2, "//") >> v2 >> n2;
-//             tokenize_string(s3, "//") >> v3 >> n3;
-//
-//             obj.vertex_buffer.push_back(vertices[v1]);
-//             obj.vertex_buffer.push_back(vertices[v2]);
-//             obj.vertex_buffer.push_back(vertices[v3]);
-//             obj.normal_buffer.push_back(normals[n1]);
-//             obj.normal_buffer.push_back(normals[n2]);
-//             obj.normal_buffer.push_back(normals[n3]);
-//         }
-//     }
-// }
 
 /* Parses the script file and populates the lists of translation vectors,
  * scaling vectors, and rotation quaternions.
  */
 void parse_script(const string &filename)
 {
-    // Vector of key frame numbers (i.e. [0, 15, 30, 45]), length = num_keyframes
-    // Vector of translation vectors at all the frames, length = num_frames
-    // Vector of scaling vectors at all the frames, length = num_frames
-    // Vector of rotation quaternions at all the frames, length = num_frames
-
-
     ifstream infile(filename);
     string line;
 
@@ -654,25 +380,28 @@ void parse_script(const string &filename)
             float rx, ry, rz, angle;
             iss >> rx >> ry >> rz >> angle;
 
-            rotations[curr_keyframe] = rot2quat(Rotation{rx, ry, rz, angle});
+            Rotation r{rx, ry, rz, angle};
+            rotations[curr_keyframe] = normalized(rot2quat(r));
         }
 
         getline(infile, line);
     }
 }
 
-// Returns the value of f(u) where f(u) is the Catmull-Rom spline between
-// two control points p_i and p_i+1.
-//
-// vec_p = [p_i-1, p_i, p_i+1, p_i+2]
+/* Returns the value of f(u) where f(u) is the Catmull-Rom spline between
+ * two control points p_i and p_i+1.
+ *
+ * vec_p = [p_i-1, p_i, p_i+1, p_i+2]
+ */
 float compute_f(float u, Eigen::Vector4f vec_p) {
     Eigen::Vector4f vec_u{1, u, pow(u, 2), pow(u, 3)};
 
     return vec_u.dot(B * vec_p);
 }
 
-// Interpolate triple between points t2 and t3, given four control points
-// t1, t2, t3, and t4, and u in the unit domain.
+/* Interpolate triple between points t2 and t3, given four control points
+ * t1, t2, t3, and t4, and u in the unit domain.
+ */
 Triple interpolate_triple(const float u, const Triple &t1, const Triple &t2,
                             const Triple &t3, const Triple &t4) {
     // Interpolate each component of the triple
@@ -684,18 +413,26 @@ Triple interpolate_triple(const float u, const Triple &t1, const Triple &t2,
     return t;
 }
 
-// Interpolate transformations for all frames and populate lists of
-// transformation vectors.
-void interpolate_transformations() {
-    // Between each pair of control points p_i and p_i+1, compute interpolated
-    // values between them using fixed B and arguments u and p, where
-    // u = normalized value of frame (between 0 and 1) between the two keyframes (p_i and p_i+1),
-    // such that keyframe for p_i maps to 0 and keyframe for p_i+1 maps to 1
-    // p = [p_i-1, p_i, p_i+1, p_i+2]
+Quaternion interpolate_quaternion(const float u, const Quaternion &q1,
+                                    const Quaternion &q2, const Quaternion &q3,
+                                    const Quaternion &q4) {
+    // Interpolate each component of the quaternion
+    Quaternion q;
+    q.s = compute_f(u, Eigen::Vector4f{q1.s, q2.s, q3.s, q4.s});
+    q.x = compute_f(u, Eigen::Vector4f{q1.x, q2.x, q3.x, q4.x});
+    q.y = compute_f(u, Eigen::Vector4f{q1.y, q2.y, q3.y, q4.y});
+    q.z = compute_f(u, Eigen::Vector4f{q1.z, q2.z, q3.z, q4.z});
 
-    // For every frame between two keyframes, compute normalized value 0 < u < 1
-    // and interpolate value for each component of translation, scale, and rotation
-    // TODO: check index bounds
+    return normalized(q);
+}
+
+/* Interpolates transformations for all frames and populate lists of
+ * transformation vectors.
+ */
+void interpolate_transformations() {
+    // For every pair of keyframes, interpolate transformation values for
+    // each frame between the two keyframes.
+
     int num_keyframes = keyframes.size();
 
     for (int i = 0; i < num_keyframes; i++) {
@@ -707,15 +444,12 @@ void interpolate_transformations() {
         int keyframe0 = keyframes[(num_keyframes + i - 1) % num_keyframes];
         int keyframe3 = keyframes[(i + 2) % num_keyframes];
 
-        // TODO: check % works properly with -1
         int max_frame = (num_frames + keyframe2 - 1) % num_frames;
 
         for (int frame = keyframe1 + 1; frame <= max_frame; frame++) {
-            cout << "interpolating frame " << frame << endl;
-
             // Compute normalized value 0 < u < 1
             // Note that we use max_frame + 1 instead of keyframe2, because
-            // keyframe2 may loop back to 0
+            // keyframe2 may loop back to 0.
             float u = (float)(frame - keyframe1) / (max_frame + 1 - keyframe1);
             assert(u > 0 && u < 1);
 
@@ -726,7 +460,7 @@ void interpolate_transformations() {
                                                         translations[keyframe2],
                                                         translations[keyframe3]
                                                         );
-            cout << "translation triple " << translations[frame].x << translations[frame].y << translations[frame].z << endl;
+
             // Interpolate scale
             scales[frame] = interpolate_triple(u,
                                                 scales[keyframe0],
@@ -734,7 +468,12 @@ void interpolate_transformations() {
                                                 scales[keyframe2],
                                                 scales[keyframe3]);
 
-            // TODO: Interpolate rotation
+            // Interpolate rotation
+            rotations[frame] = interpolate_quaternion(u,
+                                                        rotations[keyframe0],
+                                                        rotations[keyframe1],
+                                                        rotations[keyframe2],
+                                                        rotations[keyframe3]);
         }
     }
 }
@@ -749,9 +488,6 @@ int main(int argc, char* argv[])
     string keyframe_filename = argv[1];
     xres = stoi(argv[2]);
     yres = stoi(argv[3]);
-
-    // // Parse the scene description file and put data into data structures.
-    // parse_scene(scene_filename);
 
     // Parse the keyframe script file and store keyframes
     parse_script(keyframe_filename);
