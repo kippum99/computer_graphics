@@ -65,45 +65,9 @@ void key_pressed(unsigned char key, int x, int y);
 Rotation quat2rot(Quaternion quat);
 Quaternion rot2quat(Rotation rot);
 
-Eigen::Vector3f screen_to_ndc(int x, int y);
+// Eigen::Vector3f screen_to_ndc(int x, int y);
 // Eigen::Matrix4d get_current_rotation();
 
-
-// struct Transform
-// {
-//     // 0: translation, 1: rotation, 2, scaling
-//     int transform_type;
-//
-//     float x;
-//     float y;
-//     float z;
-//
-//     // Angle in degrees
-//     float rotation_angle;
-// };
-
-// /* The following struct is used to represent objects.
-//  */
-// struct Object
-// {
-//     /* See the note above and the comments in the 'draw_objects' and
-//      * 'create_cubes' functions for details about these buffer vectors.
-//      */
-//     vector<Triple> vertex_buffer;
-//     vector<Triple> normal_buffer;
-//
-//     vector<Transform> transforms;
-//
-//     /* Index 0 has the r-component
-//      * Index 1 has the g-component
-//      * Index 2 has the b-component
-//      */
-//     float ambient_reflect[3];
-//     float diffuse_reflect[3];
-//     float specular_reflect[3];
-//
-//     float shininess;
-// };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -158,6 +122,8 @@ vector<Triple> scales;
 // Vector of rotation quaternions at all the frames, length = num_frames
 vector<Quaternion> rotations;
 
+// Basis matrix for Catmull-Rom splines
+Eigen::Matrix4f B;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -239,6 +205,15 @@ void init(void)
 
     // Set up animation
     curr_frame = 0;
+
+    B << 0, 2, 0, 0,
+        -1, 0, 1, 0,
+        2, -5, 4, -1,
+        -1, 3, -3, 1;
+    B /= 2;
+
+    // Interpolate transformations for all frames
+    interpolate_transformations();
 
     // init_lights();
 }
@@ -533,21 +508,21 @@ Rotation quat2rot(Quaternion quat) {
     return Rotation{};
 }
 
-/* Returns the (x', y', z') NDC coordinate of the given (x, y) screen
- * coordinate, with Arcball mapping (map points on the surface of a unit
- * sphere.)
- */
-Eigen::Vector3f screen_to_ndc(int x, int y) {
-    float x_ndc = (float) x / xres * 2 - 1;
-    float y_ndc = (float) (yres - 1 - y) / yres * 2 - 1;
-    float z_ndc = 0;
-
-    if (pow(x_ndc, 2) + pow(y_ndc, 2) <= 1) {
-        z_ndc = sqrt(1 - pow(x_ndc, 2) - pow(y_ndc, 2));
-    }
-
-    return Eigen::Vector3f{x_ndc, y_ndc, z_ndc};
-}
+// /* Returns the (x', y', z') NDC coordinate of the given (x, y) screen
+//  * coordinate, with Arcball mapping (map points on the surface of a unit
+//  * sphere.)
+//  */
+// Eigen::Vector3f screen_to_ndc(int x, int y) {
+//     float x_ndc = (float) x / xres * 2 - 1;
+//     float y_ndc = (float) (yres - 1 - y) / yres * 2 - 1;
+//     float z_ndc = 0;
+//
+//     if (pow(x_ndc, 2) + pow(y_ndc, 2) <= 1) {
+//         z_ndc = sqrt(1 - pow(x_ndc, 2) - pow(y_ndc, 2));
+//     }
+//
+//     return Eigen::Vector3f{x_ndc, y_ndc, z_ndc};
+// }
 
 /* 'key_pressed' function:
  *
@@ -686,8 +661,82 @@ void parse_script(const string &filename)
     }
 }
 
-void interpolate_transformations() {
+// Returns the value of f(u) where f(u) is the Catmull-Rom spline between
+// two control points p_i and p_i+1.
+//
+// vec_p = [p_i-1, p_i, p_i+1, p_i+2]
+float compute_f(float u, Eigen::Vector4f vec_p) {
+    Eigen::Vector4f vec_u{1, u, pow(u, 2), pow(u, 3)};
 
+    return vec_u.dot(B * vec_p);
+}
+
+// Interpolate triple between points t2 and t3, given four control points
+// t1, t2, t3, and t4, and u in the unit domain.
+Triple interpolate_triple(const float u, const Triple &t1, const Triple &t2,
+                            const Triple &t3, const Triple &t4) {
+    // Interpolate each component of the triple
+    Triple t;
+    t.x = compute_f(u, Eigen::Vector4f{t1.x, t2.x, t3.x, t4.x});
+    t.y = compute_f(u, Eigen::Vector4f{t1.y, t2.y, t3.y, t4.y});
+    t.z = compute_f(u, Eigen::Vector4f{t1.z, t2.z, t3.z, t4.z});
+
+    return t;
+}
+
+// Interpolate transformations for all frames and populate lists of
+// transformation vectors.
+void interpolate_transformations() {
+    // Between each pair of control points p_i and p_i+1, compute interpolated
+    // values between them using fixed B and arguments u and p, where
+    // u = normalized value of frame (between 0 and 1) between the two keyframes (p_i and p_i+1),
+    // such that keyframe for p_i maps to 0 and keyframe for p_i+1 maps to 1
+    // p = [p_i-1, p_i, p_i+1, p_i+2]
+
+    // For every frame between two keyframes, compute normalized value 0 < u < 1
+    // and interpolate value for each component of translation, scale, and rotation
+    // TODO: check index bounds
+    int num_keyframes = keyframes.size();
+
+    for (int i = 0; i < num_keyframes; i++) {
+        int keyframe1 = keyframes[i % num_keyframes];
+        int keyframe2 = keyframes[(i + 1) % num_keyframes]; // May loop to 0
+
+        // Need control point before keyframe1 and one after keyframe2 for
+        // cardinal cubic splines
+        int keyframe0 = keyframes[(num_keyframes + i - 1) % num_keyframes];
+        int keyframe3 = keyframes[(i + 2) % num_keyframes];
+
+        // TODO: check % works properly with -1
+        int max_frame = (num_frames + keyframe2 - 1) % num_frames;
+
+        for (int frame = keyframe1 + 1; frame <= max_frame; frame++) {
+            cout << "interpolating frame " << frame << endl;
+
+            // Compute normalized value 0 < u < 1
+            // Note that we use max_frame + 1 instead of keyframe2, because
+            // keyframe2 may loop back to 0
+            float u = (float)(frame - keyframe1) / (max_frame + 1 - keyframe1);
+            assert(u > 0 && u < 1);
+
+            // Interpolate translation
+            translations[frame] = interpolate_triple(u,
+                                                        translations[keyframe0],
+                                                        translations[keyframe1],
+                                                        translations[keyframe2],
+                                                        translations[keyframe3]
+                                                        );
+            cout << "translation triple " << translations[frame].x << translations[frame].y << translations[frame].z << endl;
+            // Interpolate scale
+            scales[frame] = interpolate_triple(u,
+                                                scales[keyframe0],
+                                                scales[keyframe1],
+                                                scales[keyframe2],
+                                                scales[keyframe3]);
+
+            // TODO: Interpolate rotation
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -706,10 +755,6 @@ int main(int argc, char* argv[])
 
     // Parse the keyframe script file and store keyframes
     parse_script(keyframe_filename);
-
-    // Interpolate transformations for all frames to populate lists of
-    // transformation vectors.
-    interpolate_transformations();
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
