@@ -1,5 +1,5 @@
 #include "helpers.hpp"
-#include "quaternion.hpp"
+// #include "quaternion.hpp"
 
 #include <Eigen/Dense>
 #include <GL/glew.h>
@@ -7,7 +7,6 @@
 #include <math.h>
 
 #define _USE_MATH_DEFINES
-#define GL_SILENCE_DEPRECATION
 
 #include <fstream>
 #include <iostream>
@@ -15,6 +14,33 @@
 #include <vector>
 
 using namespace std;
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/* Structs storing information for rendering
+ */
+
+/* The following struct is used for representing points and normals in world
+ * coordinates.
+ */
+struct Triple
+{
+    float x;
+    float y;
+    float z;
+};
+
+struct Rotation {
+    float x, y, z;
+    float angle;    // angle in degrees
+};
+
+struct Quaternion {
+    float r;
+    float i;
+    float j;
+    float k;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -27,65 +53,34 @@ void display(void);
 // void init_lights();
 // void set_lights();
 // void draw_objects();
+void draw_frame();
 void draw_IBar();
+void parse_script();
+void interpolate_transformations();
 
 // void mouse_pressed(int button, int state, int x, int y);
 // void mouse_moved(int x, int y);
 void key_pressed(unsigned char key, int x, int y);
 
+Rotation quat2rot(Quaternion quat);
+Quaternion rot2quat(Rotation rot);
+
 Eigen::Vector3f screen_to_ndc(int x, int y);
 // Eigen::Matrix4d get_current_rotation();
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* Structs storing information for rendering
- */
-
-/* The following struct is used for representing a point light.
- *
- * We specify the positions in the 'set_lights' function.
- */
-struct Point_Light
-{
-    /* Index 0 has the x-coordinate
-     * Index 1 has the y-coordinate
-     * Index 2 has the z-coordinate
-     * Index 3 has the w-coordinate
-     */
-    float position[4];
-
-    /* Index 0 has the r-component
-     * Index 1 has the g-component
-     * Index 2 has the b-component
-     */
-    float color[3];
-
-    /* 'k' factor for attenuation. */
-    float attenuation_k;
-};
-
-/* The following struct is used for representing points and normals in world
- * coordinates.
- */
-struct Triple
-{
-    float x;
-    float y;
-    float z;
-};
-
-struct Transform
-{
-    // 0: translation, 1: rotation, 2, scaling
-    int transform_type;
-
-    float x;
-    float y;
-    float z;
-
-    // Angle in degrees
-    float rotation_angle;
-};
+// struct Transform
+// {
+//     // 0: translation, 1: rotation, 2, scaling
+//     int transform_type;
+//
+//     float x;
+//     float y;
+//     float z;
+//
+//     // Angle in degrees
+//     float rotation_angle;
+// };
 
 // /* The following struct is used to represent objects.
 //  */
@@ -142,6 +137,30 @@ const float shininess = 0.1;
 GLUquadricObj *quadratic;
 
 ////////////////////////////////////////////////////////////////////////////////
+/* Animation global variables. */
+
+
+// Total number of frames
+int num_frames;
+
+// Current frame number (loops from 0 to num_frames - 1)
+int curr_frame;
+
+// Vector of key frame numbers (i.e. [0, 15, 30, 45]), length = num_keyframes
+vector<int> keyframes;
+
+// Vector of translation vectors at all the frames, length = num_frames
+vector<Triple> translations;
+
+// Vector of scaling vectors at all the frames, length = num_frames
+vector<Triple> scales;
+
+// Vector of rotation quaternions at all the frames, length = num_frames
+vector<Quaternion> rotations;
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 
 // /* Lists of lights and objects.
@@ -218,6 +237,9 @@ void init(void)
     // Set up quadratic for I-bar
     quadratic = gluNewQuadric();
 
+    // Set up animation
+    curr_frame = 0;
+
     // init_lights();
 }
 
@@ -246,9 +268,9 @@ void display(void)
     // set_lights();
     // draw_objects();
 
-    // Draw IBar
+    // Draw frame
     glEnable(GL_LIGHTING);
-    draw_IBar();
+    draw_frame();
     glDisable(GL_LIGHTING);
 
     glutSwapBuffers();
@@ -286,6 +308,24 @@ void display(void)
 //     }
 // }
 
+/* Draws the current frame for the animated IBar, applying transform
+ * specifications for the frame. */
+void draw_frame() {
+    cout << "curr frame " << curr_frame << endl;
+    // Get current transformations
+    Triple translation = translations[curr_frame];
+    Triple scale = scales[curr_frame];
+    Rotation rotation = quat2rot(rotations[curr_frame]);
+
+    glPushMatrix();
+    glTranslatef(translation.x, translation.y, translation.z);
+    glScalef(scale.x, scale.y, scale.z);
+    // glRotatef(rotation.angle, rotation.x, rotation.y, rotation.z);
+    draw_IBar();
+    glPopMatrix();
+}
+
+// TODO: remove this and just call from other file
 void draw_IBar()
 {
     /* Parameters for drawing the cylinders */
@@ -328,7 +368,8 @@ void draw_IBar()
     glPopMatrix();
 }
 
-void update_IBar()
+/* Updates IBar's position. */
+void update()
 {
     // float norm = sqrt(pow(m1.x, 2) + pow(m1.y, 2));
     //
@@ -339,13 +380,6 @@ void update_IBar()
     // m1.y += (dt / m1.m) * m1.py;
     //
     // t += dt;
-}
-
-/* Updates IBar's position. */
-void update()
-{
-    update_IBar();
-    glutPostRedisplay();
 }
 
 
@@ -490,6 +524,15 @@ float rad2deg(float angle)
     return angle / M_PI * 180.0;
 }
 
+// TODO: COMPLETE
+Quaternion rot2quat(Rotation rot) {
+    return Quaternion{};
+}
+
+Rotation quat2rot(Quaternion quat) {
+    return Rotation{};
+}
+
 /* Returns the (x', y', z') NDC coordinate of the given (x, y) screen
  * coordinate, with Arcball mapping (map points on the surface of a unit
  * sphere.)
@@ -520,16 +563,23 @@ void key_pressed(unsigned char key, int x, int y)
 {
     /* If 'q' is pressed, quit the program.
      */
-    if(key == 'q')
+    if (key == 'q')
     {
         exit(0);
     }
     /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
      * render our cubes as surfaces of wireframes.
      */
-    else if(key == 't')
+    else if (key == 't')
     {
         wireframe_mode = !wireframe_mode;
+        glutPostRedisplay();
+    }
+    /* If 'f' is pressed, step forward one frame.
+     */
+    else if (key == 'f')
+    {
+        curr_frame = (curr_frame + 1) % num_frames;
         glutPostRedisplay();
     }
 }
@@ -577,184 +627,68 @@ void key_pressed(unsigned char key, int x, int y)
 //         }
 //     }
 // }
-//
-// void parse_scene(const string &filename)
-// {
-//     ifstream infile(filename);
-//     string line;
-//
-//     // Skip "camera:" token
-//     getline(infile, line);
-//     getline(infile, line);
-//
-//     // Read camera and perspective paramters
-//     while (!line.empty()) {
-//         istringstream iss(line);
-//         string label;
-//         iss >> label;
-//
-//         if (label == "position") {
-//             float tx, ty, tz;
-//             iss >> tx >> ty >> tz;
-//             cam_position[0] = tx;
-//             cam_position[1] = ty;
-//             cam_position[2] = tz;
-//         }
-//         else if (label == "orientation") {
-//             float rx, ry, rz, angle;
-//             iss >> rx >> ry >> rz >> angle;
-//             cam_orientation_axis[0] = rx;
-//             cam_orientation_axis[1] = ry;
-//             cam_orientation_axis[2] = rz;
-//             cam_orientation_angle = rad2deg(angle);
-//         }
-//         else if (label == "near") {
-//             iss >> near_param;
-//         }
-//         else if (label == "far") {
-//             iss >> far_param;
-//         }
-//         else if (label == "left") {
-//             iss >> left_param;
-//         }
-//         else if (label == "right") {
-//             iss >> right_param;
-//         }
-//         else if (label == "top") {
-//             iss >> top_param;
-//         }
-//         else if (label == "bottom") {
-//             iss >> bottom_param;
-//         }
-//
-//         getline(infile, line);
-//     }
-//
-//     getline(infile, line);
-//
-//     // Read point light sources
-//     while (!line.empty()) {
-//         istringstream iss(line);
-//         string _;
-//         float x, y, z, r, g, b, k;
-//
-//         iss >> _ >> x >> y >> z >> _ >> r >> g >> b >> _ >> k;
-//
-//         Point_Light light;
-//
-//         light.position[0] = x;
-//         light.position[1] = y;
-//         light.position[2] = z;
-//         light.position[3] = 1;
-//
-//         light.color[0] = r;
-//         light.color[1] = g;
-//         light.color[2] = b;
-//         light.attenuation_k = k;
-//
-//         lights.push_back(light);
-//
-//         getline(infile, line);
-//     }
-//
-//     // Skip empty line and "objects:" token
-//     getline(infile, line);
-//     getline(infile, line);
-//
-//     // Read objects and filenames
-//
-//     // Mapping from object label to original objects
-//     map<string, Object> object_map;
-//
-//     while (!line.empty()) {
-//         int break_idx = line.find(" ");
-//         string obj_label = line.substr(0, break_idx);
-//         string filename = line.substr(break_idx + 1, line.length());
-//         Object obj;
-//         parse_object("data/" + filename, obj);
-//         object_map[obj_label] = obj;
-//         getline(infile, line);
-//     }
-//
-//     // Read and store material fields and transformations
-//     while (getline(infile, line)) {
-//         string obj_label = line;
-//
-//         // Creates a copy from the object stored in object_map
-//         Object obj = object_map[obj_label];
-//
-//         getline(infile, line);
-//
-//         // Read material fields for the object
-//         while (!line.empty()) {
-//             istringstream iss(line);
-//             string t;
-//             iss >> t;
-//
-//             if (t == "ambient") {
-//                 float r, g, b;
-//                 iss >> r >> g >> b;
-//                 obj.ambient_reflect[0] = r;
-//                 obj.ambient_reflect[1] = g;
-//                 obj.ambient_reflect[2] = b;
-//             }
-//             else if (t == "diffuse") {
-//                 float r, g, b;
-//                 iss >> r >> g >> b;
-//                 obj.diffuse_reflect[0] = r;
-//                 obj.diffuse_reflect[1] = g;
-//                 obj.diffuse_reflect[2] = b;
-//             }
-//             else if (t == "specular") {
-//                 float r, g, b;
-//                 iss >> r >> g >> b;
-//                 obj.specular_reflect[0] = r;
-//                 obj.specular_reflect[1] = g;
-//                 obj.specular_reflect[2] = b;
-//             }
-//             else if (t == "shininess") {
-//                 iss >> obj.shininess;
-//                 getline(infile, line);
-//                 break;
-//             }
-//
-//             getline(infile, line);
-//         }
-//
-//         // Read all transformations for the object and store
-//         while (!line.empty()) {
-//             istringstream iss(line);
-//             string t;
-//             iss >> t;
-//
-//             if (t == "t") {
-//                 float tx, ty, tz;
-//                 iss >> tx >> ty >> tz;
-//                 obj.transforms.push_back(Transform{0, tx, ty, tz, 0});
-//             }
-//             else if (t == "r") {
-//                 float rx, ry, rz, angle;
-//                 iss >> rx >> ry >> rz >> angle;
-//                 obj.transforms.push_back(
-//                                     Transform{1, rx, ry, rz, rad2deg(angle)});
-//             }
-//             else if (t == "s") {
-//                 float sx, sy, sz;
-//                 iss >> sx >> sy >> sz;
-//                 obj.transforms.push_back(Transform{2, sx, sy, sz, 0});
-//             }
-//
-//             if (infile.eof()) {
-//                 break;
-//             }
-//
-//             getline(infile, line);
-//         }
-//
-//         // Store transformed copy
-//         objects.push_back(obj);
-//     }
-// }
+
+/* Parses the script file and populates the lists of translation vectors,
+ * scaling vectors, and rotation quaternions.
+ */
+void parse_script(const string &filename)
+{
+    // Vector of key frame numbers (i.e. [0, 15, 30, 45]), length = num_keyframes
+    // Vector of translation vectors at all the frames, length = num_frames
+    // Vector of scaling vectors at all the frames, length = num_frames
+    // Vector of rotation quaternions at all the frames, length = num_frames
+
+
+    ifstream infile(filename);
+    string line;
+
+    // Get total number of frames in the animation
+    getline(infile, line);
+    num_frames = stoi(line);
+
+    // Initialize transformation vectors
+    translations = vector<Triple>(num_frames);
+    scales = vector<Triple>(num_frames);
+    rotations = vector<Quaternion>(num_frames);
+
+    // Read keyframes
+    while (!line.empty()) {
+        istringstream iss(line);
+        string label;
+        iss >> label;
+
+        int curr_keyframe;
+
+        if (label == "Frame") {
+            iss >> curr_keyframe;
+            keyframes.push_back(curr_keyframe);
+        }
+        else if (label == "translation") {
+            float tx, ty, tz;
+            iss >> tx >> ty >> tz;
+
+            translations[curr_keyframe] = Triple{tx, ty, tz};
+        }
+        else if (label == "scale") {
+            float sx, sy, sz;
+            iss >> sx >> sy >> sz;
+
+            scales[curr_keyframe] = Triple{sx, sy, sz};
+        }
+        else if (label == "rotation") {
+            float rx, ry, rz, angle;
+            iss >> rx >> ry >> rz >> angle;
+
+            rotations[curr_keyframe] = rot2quat(Rotation{rx, ry, rz, angle});
+        }
+
+        getline(infile, line);
+    }
+}
+
+void interpolate_transformations() {
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -770,6 +704,13 @@ int main(int argc, char* argv[])
     // // Parse the scene description file and put data into data structures.
     // parse_scene(scene_filename);
 
+    // Parse the keyframe script file and store keyframes
+    parse_script(keyframe_filename);
+
+    // Interpolate transformations for all frames to populate lists of
+    // transformation vectors.
+    interpolate_transformations();
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(xres, yres);
@@ -778,7 +719,6 @@ int main(int argc, char* argv[])
 
     init();
     glutDisplayFunc(display);
-    // glutIdleFunc(update);
     glutReshapeFunc(reshape);
     glutKeyboardFunc(key_pressed);
     glutMainLoop();
