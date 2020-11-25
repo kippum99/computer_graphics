@@ -110,12 +110,10 @@ vector<Quaternion> rotations;
 Eigen::Matrix4f B;
 
 ////////////////////////////////////////////////////////////////////////////////
-/* Other global variables */
+/* Screen resolution */
 
 int xres;
 int yres;
-
-bool wireframe_mode = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -317,14 +315,6 @@ void key_pressed(unsigned char key, int x, int y)
     if (key == 'q')
     {
         exit(0);
-    }
-    /* If 't' is pressed, toggle our 'wireframe_mode' boolean to make OpenGL
-     * render our cubes as surfaces of wireframes.
-     */
-    else if (key == 't')
-    {
-        wireframe_mode = !wireframe_mode;
-        glutPostRedisplay();
     }
     /* If 'f' is pressed, step forward one frame.
      */
