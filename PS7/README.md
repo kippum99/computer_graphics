@@ -1,4 +1,8 @@
-# CS 171 Raytracer
+# CS 171 Raytracer (Version A)
+
+## Compiling and Running
+make
+./bin/renderer [xres] [yres] [scene_file.yaml]
 
 ## Controls
 

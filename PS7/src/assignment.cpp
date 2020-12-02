@@ -12,6 +12,7 @@ const int MAX_ITERS = 10000;
 const int XRES = 500;
 const int YRES = 500;
 
+
 /** 
  * Helper functions 
  */
@@ -90,9 +91,6 @@ bool Assembly::IOTest(const Vector3d &point) {
  */
 
 pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
-	cout << "ClosestInterseciton sq" << endl;
-
-
 	pair<double, Intersection> closest = make_pair(INFINITY, Intersection());
 
 	// Convert ray from parent space to body space
@@ -124,7 +122,7 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 		return closest;
 	}
 
-	// Newton's method 
+	// Newton's method iteration
 	const double eps = 0.001;	// Stopping condition threshold
 
 	while (true) {
@@ -135,7 +133,6 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 		double z = ray_t.z();
 
 		double g = S(x, y, z, exp0, exp1);
-		cout << "g: " << g << endl;
 
 		if (abs(g) < eps) {
 			// origin is the location of the intersection in parent space
@@ -153,9 +150,6 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 		double g_prime = ray_body.direction.dot(grad_S(x, y, z, exp0, exp1));
 
 		if (g_prime >= 0) {
-			// TODO: DIVISION BY ZERO ??
-			cout << "DIVISION BY ZERO!" << endl;
-
 			// We're moving away from superquadric 
 			return closest;
 		}
@@ -168,15 +162,6 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 }
 
 pair<double, Intersection> Assembly::ClosestIntersection(const Ray &ray) {
-	cout << "ClosestInterseciton assembly" << endl;
-    /**
-     * PART 1
-     * TODO: Implement a ray-assembly intersection by recursively finding
-     *       intersection with the assembly's children. Make sure to apply any
-     *       transformations to the assembly before calling ClosestIntersection
-     *       on the children.
-     */
-
 	// Convert point from parent space to body space
 	Matrix4d transform_mat = Matrix4d::Identity();
 
@@ -194,7 +179,6 @@ pair<double, Intersection> Assembly::ClosestIntersection(const Ray &ray) {
 		pair<double, Intersection> child_intersect 
 			= obj->ClosestIntersection(ray_body);
 		
-		cout << "Finished" << endl;
 		if (child_intersect.first < closest.first) {
 			closest = child_intersect;
 		}
