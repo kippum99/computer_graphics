@@ -24,6 +24,11 @@ private:
 
     unsigned int buffer_array;
     unsigned int buffer_objects[2];
+    
+    Eigen::Vector3f Lighting(const Eigen::Vector3d &v, const Eigen::Vector3d &n,
+                    const Material &material, const std::vector<Light> &lights,
+                    const Eigen::Vector3d &e) const;
+
 public:
     Scene() = default;
     Scene(std::ifstream &scene_file);

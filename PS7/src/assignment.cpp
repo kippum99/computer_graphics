@@ -41,48 +41,6 @@ Vector3d grad_S(double x, double y, double z, double e, double n) {
     return grad;
 }
 
-/* Returns the color in a Vector3f {r, g, b} of a point v given in world 
- * coordinates using the Phong lighting model.
- */
-Vector3f lighting(const Vector3d &v, const Vector3d &n,
-					const Material &material, const vector<Light> &lights,
-					const Vector3d &e) {
-	Vector3f diffuse_sum(0, 0, 0);
-	Vector3f specular_sum(0, 0, 0);
-	Vector3d e_direction = (e - v).normalized();
-
-	for (const Light &l : lights) {
-		Vector3d l_position(l.position.x(), l.position.y(), l.position.z());
-		l_position /= l.position.w();
-
-		//Attenuation
-		float d = (v - l_position).norm();
-		Vector3f l_c = l.color.ToVector();
-		// Vector3f l_c = l.color.ToVector() / (1 + l.attenuation * d * d);
-
-		Vector3d l_direction = (l_position - v).normalized();
-
-		Vector3f l_diffuse = l_c * max(0.d, n.dot(l_direction));
-		diffuse_sum += l_diffuse;
-
-		Vector3f l_specular = l_c 
-			* pow(max(0.d, n.dot((e_direction + l_direction).normalized())),
-			material.shininess);
-		specular_sum += l_specular;
-	}
-
-	Vector3f color = material.ambient.ToVector()
-						+ diffuse_sum.cwiseProduct(material.diffuse.ToVector())
-						+ specular_sum.cwiseProduct(
-							material.specular.ToVector());
-
-	color(0) = min(1.f, color(0));
-	color(1) = min(1.f, color(1));
-	color(2) = min(1.f, color(2));
-
-	return color;
-}
-
 
 /**
  * IOTest Code
@@ -239,33 +197,87 @@ pair<double, Intersection> Assembly::ClosestIntersection(const Ray &ray) {
  * Raytracing Code
  */
 
+/* Returns the color in a Vector3f {r, g, b} of a point v given in world 
+ * coordinates using the Phong lighting model.
+ */
+Vector3f Scene::Lighting(const Vector3d &v, const Vector3d &n,
+					const Material &material, const vector<Light> &lights,
+					const Vector3d &e) const {
+	Vector3f diffuse_sum(0, 0, 0);
+	Vector3f specular_sum(0, 0, 0);
+	Vector3d e_direction = (e - v).normalized();
+
+	for (const Light &l : lights) {
+		Vector3d l_position(l.position.x(), l.position.y(), l.position.z());
+		l_position /= l.position.w();
+
+		// Check if light is obstructed by another object on the path to the obj 
+		Ray ray;	// Ray from light to obj 
+		ray.origin = l_position;
+		ray.direction = v - l_position;
+
+		// cout << "our vertex v " << v << endl;
+		// cout << "computed v " << ray.At(1) << endl;
+
+		// assert(v == ray.At(1));
+
+		double obstruct_t = ClosestIntersection(ray).first;
+
+		// cout << "t " << obstruct_t << endl;
+
+		if (obstruct_t < 1.d - 0.001) {	// Our object is intersected at t = 1
+			continue;	// Light is obstructed (apply shadow)
+		}
+
+		//Attenuation
+		float d = (v - l_position).norm();
+		Vector3f l_c = l.color.ToVector() / (1 + l.attenuation * d * d);
+
+		Vector3d l_direction = (l_position - v).normalized();
+
+		Vector3f l_diffuse = l_c * max(0.d, n.dot(l_direction));
+		diffuse_sum += l_diffuse;
+
+		Vector3f l_specular = l_c 
+			* pow(max(0.d, n.dot((e_direction + l_direction).normalized())),
+			material.shininess);
+		specular_sum += l_specular;
+	}
+
+	Vector3f color = material.ambient.ToVector()
+						+ diffuse_sum.cwiseProduct(material.diffuse.ToVector())
+						+ specular_sum.cwiseProduct(
+							material.specular.ToVector());
+
+	color(0) = min(1.f, color(0));
+	color(1) = min(1.f, color(1));
+	color(2) = min(1.f, color(2));
+
+	return color;
+}
+
 void Scene::Raytrace() {
+	// TODO: Check coordinates
+
     Image img = Image(XRES, YRES);
 
     // TODO: CHECK COORDINATES
 
     const Camera cam = GetCamera();
-    // Vector3d cam_pos = cam.translate.GetDelta();
-   	Frustum frustum = cam.frustum;
+   	const Frustum frustum = cam.frustum;
 
     // Get width and height of the front plane of camera frustum
-    double fov_rad = frustum.fov * M_PI / 180;
-    double h = 2 * frustum.near * tan(fov_rad / 2);
-    double w = frustum.aspect_ratio * h;
+    const double fov_rad = frustum.fov * M_PI / 180;
+    const double h = 2 * frustum.near * tan(fov_rad / 2);
+    const double w = frustum.aspect_ratio * h;
 
     // Transform matrix to convert from camera space to world space 
-    Matrix4d cam_trans_mat = (cam.translate.GetMatrix() * cam.rotate.GetMatrix()).inverse();
+    const Matrix4d cam_trans_mat = (cam.translate.GetMatrix() 
+	    							* cam.rotate.GetMatrix()
+	    							).inverse();
 
     for (int i = 0; i < XRES; i++) {
         for (int j = 0; j < YRES; j++) {
-            /**
-             * PART 2
-             * TODO: Implement raytracing using the code from the first part
-             *       of the assignment. Set the correct color for each pixel
-             *       here.
-             */
-            img.SetPixel(i, j, Vector3f::Zero());
-
             // Get the ray from the camera through this pixel (i, j)
             Ray ray;
             ray.origin = Vector3d(0, 0, 0);
@@ -274,32 +286,30 @@ void Scene::Raytrace() {
             				+ (j - YRES / 2) * h / YRES * Vector3d(0, 1, 0);
 
             // Convert ray to world coords 
-           	// TODO: write code to convert betwen 3f and 4f
             ray.Transform(cam_trans_mat);
-            // Vector4d origin = cam.translate.GetMatrix() * Vector4d(cam_pos.x(), cam_pos.y(), cam_pos.z(), 1);
-            // ray.origin = Vector3d(origin.x(), origin.y(), origin.z()) / origin.w();
-
-            // Vector4d dir(ray.direction.x(), ray.direction.y(), 
-            // 				ray.direction.z(), 1);
-
-            // dir = cam.rotate.GetMatrix() * dir;
-            // ray.direction = Vector3d(dir.x(), dir.y(), dir.z()) / dir.w();
 
             // Find the closest intersection of the ray with an object
-            // TODO: IN WOLRD COORD
             // TODO: what to do with the t value?
-            pair<double, Intersection> closest = ClosestIntersection(ray);
+            // pair<double, Intersection> closest = ClosestIntersection(ray);
             // cout << closest.first << endl;
 
             Intersection inter = ClosestIntersection(ray).second;
 
             if (inter.obj) {
-	            Vector3f color = lighting(inter.location.origin, 
+            	// Check if light is 
+
+
+
+	            Vector3f color = Lighting(inter.location.origin, 
 	            							inter.location.direction,
 	            							inter.obj->GetMaterial(), 
 	            							GetLights(), ray.origin);
 	            // cout << "Setting color to " << color.x() << " " << color.y() << " " << color.z()<<endl;
 	            img.SetPixel(i, j, color);
+	        }
+	        else {
+	        	// No object at the pixel
+	        	img.SetPixel(i, j, Vector3f::Zero());
 	        }
         }
     }
