@@ -21,7 +21,7 @@ void Rotate::OpenGLTransform() const {
     glRotatef(angle, axis_x, axis_y, axis_z);
 }
 
-Matrix4d Rotate::GetMatrix() {
+Matrix4d Rotate::GetMatrix() const {
     double theta = angle * M_PI / 180;
     double cos1m = 1 - cos(theta);
 
@@ -73,7 +73,7 @@ void Translate::OpenGLTransform() const {
     glTranslatef(delta_x, delta_y, delta_z);
 }
 
-Matrix4d Translate::GetMatrix() {
+Matrix4d Translate::GetMatrix() const {
     Matrix4d translation;
     translation << 1, 0, 0, delta_x,
                    0, 1, 0, delta_y,
@@ -103,7 +103,7 @@ void Scale::OpenGLTransform() const {
     glScalef(scale_x, scale_y, scale_z);
 }
 
-Matrix4d Scale::GetMatrix() {
+Matrix4d Scale::GetMatrix() const {
     Matrix4d scaling;
     scaling << scale_x, 0, 0, 0,
                 0, scale_y, 0, 0,
