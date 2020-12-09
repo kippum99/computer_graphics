@@ -123,7 +123,7 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 	}
 
 	// Newton's method iteration
-	const double eps = 0.001;	// Stopping condition threshold
+	const double eps = 0.0001;	// Stopping condition threshold
 
 	while (true) {
 		Vector3d ray_t = ray_body.At(t);
@@ -141,7 +141,18 @@ pair<double, Intersection> Superquadric::ClosestIntersection(const Ray &ray) {
 			Ray location;
 			location.origin = ray_t;
 			location.direction = GetNormal(ray_t);
-			location.Transform(transform_mat);
+			// location.Transform(transform_mat);
+			// location.Normalize();
+
+			// Transform and normalize location Ray in Intersection
+		    Vector4d origin = Vector4d::Ones();
+		    origin.head(3) = location.origin;
+		    origin = transform_mat * origin;
+		    location.origin = origin.head(3);
+
+		    location.direction = transform_mat.inverse().transpose().block<3, 3>(0, 0) 
+		    						* location.direction;
+
 			location.Normalize();
 
 			return make_pair(t, Intersection(location, this));
@@ -184,10 +195,21 @@ pair<double, Intersection> Assembly::ClosestIntersection(const Ray &ray) {
 		}
 	}
 
-	// Normalize location Ray in Intersection
+	// Transform and normalize location Ray in Intersection
 	Ray location = closest.second.location;
-	location.Transform(transform_mat);
+
+    Vector4d origin = Vector4d::Ones();
+    origin.head(3) = location.origin;
+    origin = transform_mat * origin;
+    location.origin = origin.head(3);
+
+    location.direction = transform_mat.inverse().transpose().block<3, 3>(0, 0) 
+    						* location.direction;
+
 	location.Normalize();
+
+	// location.Transform(transform_mat);
+	// location.Normalize();
 	Intersection inter(location, closest.second.obj);
     
 	return make_pair(closest.first, inter);
@@ -225,13 +247,15 @@ Vector3f Scene::Lighting(const Vector3d &v, const Vector3d &n,
 
 		// cout << "t " << obstruct_t << endl;
 
-		if (obstruct_t < 1.d - 0.001) {	// Our object is intersected at t = 1
+		const double eps = 0.0001;
+
+		if (obstruct_t < 1.d - eps) {	// Our object is intersected at t = 1
 			continue;	// Light is obstructed (apply shadow)
 		}
 
 		//Attenuation
 		float d = (v - l_position).norm();
-		Vector3f l_c = l.color.ToVector() / (1 + l.attenuation * d * d);
+		Vector3f l_c = l.color.ToVector() / (1 + l.attenuation * d);
 
 		Vector3d l_direction = (l_position - v).normalized();
 
@@ -259,6 +283,8 @@ Vector3f Scene::Lighting(const Vector3d &v, const Vector3d &n,
 void Scene::Raytrace() {
 	// TODO: Check coordinates
 
+	cout << "Raytracing..." << endl;
+
     Image img = Image(XRES, YRES);
 
     // TODO: CHECK COORDINATES
@@ -278,6 +304,7 @@ void Scene::Raytrace() {
 
     for (int i = 0; i < XRES; i++) {
         for (int j = 0; j < YRES; j++) {
+        	cout << i << " " << j << endl;
             // Get the ray from the camera through this pixel (i, j)
             Ray ray;
             ray.origin = Vector3d(0, 0, 0);
@@ -296,10 +323,6 @@ void Scene::Raytrace() {
             Intersection inter = ClosestIntersection(ray).second;
 
             if (inter.obj) {
-            	// Check if light is 
-
-
-
 	            Vector3f color = Lighting(inter.location.origin, 
 	            							inter.location.direction,
 	            							inter.obj->GetMaterial(), 
